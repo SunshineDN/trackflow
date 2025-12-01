@@ -66,31 +66,20 @@ const HierarchyRow = ({ node, level, journeyLabels }: { node: CampaignHierarchy,
         <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
           {node.spend.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </td>
+        {/* Dynamic Stages */}
+        {(journeyLabels || ["I", "II", "III", "IV", "V"]).map((_, index) => {
+          const stageKey = `stage${index + 1}` as keyof typeof node.data;
+          const value = node.data[stageKey];
+          return (
+            <td key={index} className="py-3 px-4 text-right font-mono text-sm text-foreground">
+              {value.toLocaleString('pt-BR')}
+            </td>
+          );
+        })}
+
+        {/* Revenue */}
         <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
-          {node.data.stage1.toLocaleString('pt-BR')}
-        </td>
-        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
-          {node.data.stage2.toLocaleString('pt-BR')}
-        </td>
-        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
-          {node.data.stage3.toLocaleString('pt-BR')}
-        </td>
-        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
-          {node.data.stage4.toLocaleString('pt-BR')}
-        </td>
-        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
-          <div className="flex flex-col items-end">
-            <span>
-              {(node.revenue !== undefined)
-                ? node.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                : node.data.stage5.toLocaleString('pt-BR')}
-            </span>
-            {(node.revenue !== undefined && node.data.stage5 > 0) && (
-              <span className="text-xs text-muted-foreground">
-                ({node.data.stage5.toLocaleString('pt-BR')})
-              </span>
-            )}
-          </div>
+          {(node.revenue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </td>
       </tr>
       {expanded && node.children?.map((child) => (
@@ -120,11 +109,12 @@ export const CampaignHierarchyTable: React.FC<Props> = ({ data, loading, journey
               <th className="py-4 px-4 font-semibold text-sm text-muted-foreground w-[40%]">Nome</th>
               <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-center">Status</th>
               <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">Investimento</th>
-              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">{labels[0]}</th>
-              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">{labels[1]}</th>
-              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">{labels[2]}</th>
-              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">{labels[3]}</th>
-              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">Receita (V)</th>
+              {labels.map((label, index) => (
+                <th key={index} className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">
+                  {label || ["I", "II", "III", "IV", "V"][index]}
+                </th>
+              ))}
+              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">Receita</th>
             </tr>
           </thead>
           <tbody>

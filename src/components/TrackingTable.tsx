@@ -91,11 +91,12 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                   <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">ROAS</th>
                 </>
               )}
-              <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center text-brand-600 bg-brand-50/10">{labels[0] || "I"}</th>
-              <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">{labels[1] || "II"}</th>
-              <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">{labels[2] || "III"}</th>
-              <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">{labels[3] || "IV"}</th>
-              <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">{labels[4] || "V"}</th>
+              {labels.map((label, index) => (
+                <th key={index} scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">
+                  {label || ["I", "II", "III", "IV", "V"][index]}
+                </th>
+              ))}
+              <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center text-brand-500">Receita</th>
               <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-right">Ação</th>
             </tr>
           </thead>
@@ -137,43 +138,26 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                     </>
                   )}
 
-                  {/* Stage I */}
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-center bg-brand-50/5">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-card text-brand-600 border border-brand-500/20">
-                      {formatNumber(ad.data.stage1)}
+                  {/* Dynamic Stages */}
+                  {labels.map((_, index) => {
+                    const stageKey = `stage${index + 1}` as keyof typeof ad.data;
+                    const value = ad.data[stageKey];
+                    // Calculate percentage for bar (relative to stage 1 or previous stage?)
+                    // Let's keep it simple: just show the number. 
+                    // If index is 1 (Stage II), we had a bar before. We can try to keep it if we want, but dynamic is harder.
+                    // For now, simple number display.
+                    return (
+                      <td key={index} className="px-4 py-3 md:px-6 md:py-4 text-center">
+                        <span className="text-muted-foreground">{formatNumber(value)}</span>
+                      </td>
+                    );
+                  })}
+
+                  {/* Revenue */}
+                  <td className="px-4 py-3 md:px-6 md:py-4 text-center">
+                    <span className="font-bold text-brand-500">
+                      {formatCurrency(ad.revenue || 0)}
                     </span>
-                  </td>
-
-                  {/* Stage II */}
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-center">
-                    <span className="text-muted-foreground">{formatNumber(ad.data.stage2)}</span>
-                    <div className="w-full bg-secondary h-1 rounded-full mt-2 overflow-hidden">
-                      <div className="bg-brand-500/50 h-1 rounded-full" style={{ width: `${(ad.data.stage2 / (ad.data.stage1 || 1)) * 100}%` }}></div>
-                    </div>
-                  </td>
-
-                  {/* Stage III */}
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-center">
-                    <span className="text-muted-foreground">{formatNumber(ad.data.stage3)}</span>
-                  </td>
-
-                  {/* Stage IV */}
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-center">
-                    <span className="text-muted-foreground">{formatNumber(ad.data.stage4)}</span>
-                  </td>
-
-                  {/* Stage V */}
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-center">
-                    <div className="flex flex-col items-center">
-                      <span className="font-bold text-brand-500">
-                        {dataSource === 'META' ? formatNumber(ad.data.stage5) : formatCurrency(ad.revenue || 0)}
-                      </span>
-                      {(dataSource !== 'META' && ad.data.stage5 > 0) && (
-                        <span className="text-xs text-muted-foreground">
-                          ({formatNumber(ad.data.stage5)})
-                        </span>
-                      )}
-                    </div>
                   </td>
 
                   <td className="px-4 py-3 md:px-6 md:py-4 text-right">
