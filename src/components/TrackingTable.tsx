@@ -165,7 +165,7 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                   {/* Stage V */}
                   <td className="px-4 py-3 md:px-6 md:py-4 text-center">
                     <span className="font-bold text-brand-500">
-                      {dataSource === 'META' ? formatNumber(ad.data.stage5) : formatCurrency(ad.data.stage5)}
+                      {dataSource === 'META' ? formatNumber(ad.data.stage5) : formatCurrency(ad.revenue || 0)}
                     </span>
                   </td>
 

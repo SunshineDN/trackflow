@@ -162,7 +162,7 @@ const HomeContent = () => {
                 const totalStage3 = campaigns.reduce((acc: number, c: any) => acc + c.data.stage3, 0);
                 const totalSpend = campaigns.reduce((acc: number, c: any) => acc + (c.spend || 0), 0);
 
-                const totalRevenue = campaigns.reduce((acc: number, c: any) => acc + (c.data.stage5 || 0), 0);
+                const totalRevenue = campaigns.reduce((acc: number, c: any) => acc + (c.revenue || 0), 0);
                 const totalROAS = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
                 const baseMetrics = [

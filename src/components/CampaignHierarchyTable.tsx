@@ -76,7 +76,9 @@ const HierarchyRow = ({ node, level, journeyLabels }: { node: CampaignHierarchy,
           {node.data.stage3.toLocaleString('pt-BR')}
         </td>
         <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
-          {node.data.stage5.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          {(node.revenue !== undefined)
+            ? node.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            : node.data.stage5.toLocaleString('pt-BR')}
         </td>
       </tr>
       {expanded && node.children?.map((child) => (

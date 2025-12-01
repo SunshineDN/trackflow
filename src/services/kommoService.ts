@@ -86,7 +86,8 @@ export async function fetchKommoData(
       stage2: 0,
       stage3: 0,
       stage4: 0,
-      stage5: 0
+      stage5: 0,
+      revenue: 0
     };
 
     // Iterar sobre grupos e anúncios para somar
@@ -109,13 +110,15 @@ export async function fetchKommoData(
           campaignTotals.stage1 += ad.leadsCount;
         } else {
           // Mapeamento normal
-          journeyStages.slice(0, 4).forEach((stageName, idx) => {
+          journeyStages.slice(0, 5).forEach((stageName, idx) => {
             const key = `stage${idx + 1}` as keyof typeof campaignTotals;
-            campaignTotals[key] += ad.journey?.[stageName] || 0;
+            if (key !== 'revenue') {
+              campaignTotals[key] += ad.journey?.[stageName] || 0;
+            }
           });
-          // Stage 5 é Receita
-          campaignTotals.stage5 += ad.totalRevenue || 0;
         }
+        // Receita separada
+        campaignTotals.revenue += ad.totalRevenue || 0;
       });
     });
 
@@ -131,6 +134,7 @@ export async function fetchKommoData(
         stage4: campaignTotals.stage4,
         stage5: campaignTotals.stage5,
       },
+      revenue: campaignTotals.revenue
     });
   });
 
@@ -175,6 +179,7 @@ export async function fetchKommoHierarchy(
       data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
       spend: 0,
       roas: 0,
+      revenue: 0,
       children: []
     };
 
@@ -192,6 +197,7 @@ export async function fetchKommoHierarchy(
         data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
         spend: 0,
         roas: 0,
+        revenue: 0,
         children: []
       };
 
@@ -208,7 +214,8 @@ export async function fetchKommoHierarchy(
           status: 'active',
           data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
           spend: 0,
-          roas: 0
+          roas: 0,
+          revenue: 0
         };
 
         // Calcular métricas do anúncio
@@ -216,13 +223,13 @@ export async function fetchKommoHierarchy(
         if (journeyKeys.length === 0 && ad.leadsCount > 0) {
           adNode.data.stage1 = ad.leadsCount;
         } else {
-          journeyStages.slice(0, 4).forEach((stageName, idx) => {
+          journeyStages.slice(0, 5).forEach((stageName, idx) => {
             const key = `stage${idx + 1}` as keyof typeof adNode.data;
             adNode.data[key] = ad.journey?.[stageName] || 0;
           });
         }
         // Receita do anúncio (totalRevenue)
-        adNode.data.stage5 = ad.totalRevenue || 0;
+        adNode.revenue = ad.totalRevenue || 0;
 
         // Somar ao AdSet
         adSetNode.data.stage1 += adNode.data.stage1;
@@ -230,6 +237,7 @@ export async function fetchKommoHierarchy(
         adSetNode.data.stage3 += adNode.data.stage3;
         adSetNode.data.stage4 += adNode.data.stage4;
         adSetNode.data.stage5 += adNode.data.stage5;
+        adSetNode.revenue += adNode.revenue;
 
         adSetNode.children?.push(adNode);
       });
@@ -240,6 +248,7 @@ export async function fetchKommoHierarchy(
       campaignNode.data.stage3 += adSetNode.data.stage3;
       campaignNode.data.stage4 += adSetNode.data.stage4;
       campaignNode.data.stage5 += adSetNode.data.stage5;
+      campaignNode.revenue += adSetNode.revenue;
 
       campaignNode.children?.push(adSetNode);
     });
