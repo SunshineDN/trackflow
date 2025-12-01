@@ -164,9 +164,16 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
 
                   {/* Stage V */}
                   <td className="px-4 py-3 md:px-6 md:py-4 text-center">
-                    <span className="font-bold text-brand-500">
-                      {dataSource === 'META' ? formatNumber(ad.data.stage5) : formatCurrency(ad.revenue || 0)}
-                    </span>
+                    <div className="flex flex-col items-center">
+                      <span className="font-bold text-brand-500">
+                        {dataSource === 'META' ? formatNumber(ad.data.stage5) : formatCurrency(ad.revenue || 0)}
+                      </span>
+                      {(dataSource !== 'META' && ad.data.stage5 > 0) && (
+                        <span className="text-xs text-muted-foreground">
+                          ({formatNumber(ad.data.stage5)})
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="px-4 py-3 md:px-6 md:py-4 text-right">

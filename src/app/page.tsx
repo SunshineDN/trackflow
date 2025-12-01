@@ -157,44 +157,33 @@ const HomeContent = () => {
                     setSelectedCampaignId(campaigns[0].id);
                 }
 
-                const totalStage1 = campaigns.reduce((acc: number, c: any) => acc + c.data.stage1, 0);
-                const totalStage2 = campaigns.reduce((acc: number, c: any) => acc + c.data.stage2, 0);
-                const totalStage3 = campaigns.reduce((acc: number, c: any) => acc + c.data.stage3, 0);
                 const totalSpend = campaigns.reduce((acc: number, c: any) => acc + (c.spend || 0), 0);
-
                 const totalRevenue = campaigns.reduce((acc: number, c: any) => acc + (c.revenue || 0), 0);
                 const totalROAS = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
-                const baseMetrics = [
-                    {
-                        label: journeyMap[0] || "Etapa 1",
-                        value: totalStage1.toLocaleString('pt-BR'),
-                        percentage: "+0%",
-                        trend: "up",
-                        icon: "Users"
-                    },
-                    {
-                        label: journeyMap[1] || "Etapa 2",
-                        value: totalStage2.toLocaleString('pt-BR'),
-                        percentage: "+0%",
-                        trend: "up",
-                        icon: "Filter"
-                    },
-                    {
-                        label: journeyMap[2] || "Etapa 3",
-                        value: totalStage3.toLocaleString('pt-BR'),
-                        percentage: "+0%",
-                        trend: "up",
-                        icon: "CheckCircle"
-                    },
-                    {
-                        label: "Receita Total",
-                        value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                        percentage: "+0%",
-                        trend: "up",
-                        icon: "DollarSign"
-                    }
+                const stageTotals = [
+                    campaigns.reduce((acc: number, c: any) => acc + c.data.stage1, 0),
+                    campaigns.reduce((acc: number, c: any) => acc + c.data.stage2, 0),
+                    campaigns.reduce((acc: number, c: any) => acc + c.data.stage3, 0),
+                    campaigns.reduce((acc: number, c: any) => acc + c.data.stage4, 0),
+                    campaigns.reduce((acc: number, c: any) => acc + c.data.stage5, 0),
                 ];
+
+                const baseMetrics = journeyMap.map((label, index) => ({
+                    label: label || `Etapa ${index + 1}`,
+                    value: stageTotals[index].toLocaleString('pt-BR'),
+                    percentage: "+0%",
+                    trend: "up",
+                    icon: ["Users", "Filter", "CheckCircle", "Target", "Award"][index] || "Activity"
+                }));
+
+                baseMetrics.push({
+                    label: "Receita Total",
+                    value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                    percentage: "+0%",
+                    trend: "up",
+                    icon: "DollarSign"
+                });
 
                 if (dataSource === 'HYBRID') {
                     // Adicionar Investimento e ROAS no início
