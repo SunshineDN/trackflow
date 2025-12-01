@@ -33,3 +33,20 @@ export interface MetricSummary {
   trend: 'up' | 'down' | 'neutral';
   percentage: string;
 }
+
+export interface CampaignHierarchy {
+  id: string;
+  name: string;
+  type: 'campaign' | 'adset' | 'ad';
+  status: 'active' | 'paused' | 'completed';
+  data: {
+    stage1: number;
+    stage2: number;
+    stage3: number;
+    stage4: number;
+    stage5: number;
+  };
+  spend: number;
+  roas: number;
+  children?: CampaignHierarchy[];
+}
