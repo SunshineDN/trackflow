@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, DollarSign, Users, MousePointer, Eye, Filter, CheckCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import { CampaignHierarchy } from '@/types';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Props {
   data: CampaignHierarchy[];
@@ -10,9 +11,16 @@ interface Props {
 
 const HierarchyRow = ({ node, level, journeyLabels }: { node: CampaignHierarchy, level: number, journeyLabels?: string[] }) => {
   const [expanded, setExpanded] = useState(false);
+  const { showToast } = useToast();
   const hasChildren = node.children && node.children.length > 0;
 
   const paddingLeft = level * 20 + 10;
+
+  const handleCopy = (e: React.MouseEvent, text: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    showToast(`"${text}" copiado!`, "success");
+  };
 
   return (
     <>
@@ -26,7 +34,11 @@ const HierarchyRow = ({ node, level, journeyLabels }: { node: CampaignHierarchy,
             )}
             {!hasChildren && <div className="w-4" />} {/* Spacer */}
 
-            <span className={`font-medium ${level === 0 ? 'text-foreground' : 'text-muted-foreground'} truncate max-w-[300px]`}>
+            <span
+              className={`font-medium ${level === 0 ? 'text-foreground' : 'text-muted-foreground'} truncate max-w-[300px] hover:text-brand-500 cursor-copy transition-colors`}
+              title="Clique para copiar"
+              onClick={(e) => handleCopy(e, node.name)}
+            >
               {node.name}
             </span>
             {level === 0 && (

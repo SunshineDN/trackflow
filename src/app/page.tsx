@@ -544,7 +544,18 @@ const HomeContent = () => {
                     <section className="space-y-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
-                                <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+                                <h1
+                                    className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2 cursor-pointer hover:text-brand-500 transition-colors"
+                                    onClick={(e) => {
+                                        const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId);
+                                        const textToCopy = selectedCampaign ? selectedCampaign.name : "Dashboard";
+                                        navigator.clipboard.writeText(textToCopy);
+                                        showToast(`"${textToCopy}" copiado!`, "success");
+                                    }}
+                                    title="Clique para copiar"
+                                >
+                                    {campaigns.find(c => c.id === selectedCampaignId)?.name || "Dashboard"}
+                                </h1>
                                 <p className="text-sm text-muted-foreground">Visão geral do desempenho das suas campanhas.</p>
                             </div>
 

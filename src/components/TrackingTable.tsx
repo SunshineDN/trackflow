@@ -1,7 +1,8 @@
 import React from 'react';
 import { AdCampaign } from '../types';
-import { ChevronRight, Activity, Pause, CheckCircle2 } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Skeleton } from './Skeleton';
+import { useToast } from '@/contexts/ToastContext';
 
 interface TrackingTableProps {
   data: AdCampaign[];
@@ -22,7 +23,13 @@ const formatCurrency = (num: number) => {
 
 export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, selectedId, journeyLabels, dataSource = 'META', loading }) => {
   const labels = journeyLabels || ["I", "II", "III", "IV", "V"];
-  const showFinancials = dataSource !== 'KOMMO';
+  const { showToast } = useToast();
+
+  const handleCopy = (e: React.MouseEvent, text: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    showToast(`"${text}" copiado!`, "success");
+  };
 
   if (loading) {
     return (
@@ -106,7 +113,13 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                       <div className={`w-2 h-2 rounded-full ${ad.status === 'active' ? 'bg-brand-400 animate-pulse' :
                         ad.status === 'paused' ? 'bg-amber-400' : 'bg-muted'
                         }`} />
-                      <span className="truncate max-w-[200px]" title={ad.name}>{ad.name}</span>
+                      <span
+                        className="truncate max-w-[200px] hover:text-brand-500 cursor-copy transition-colors"
+                        title="Clique para copiar"
+                        onClick={(e) => handleCopy(e, ad.name)}
+                      >
+                        {ad.name}
+                      </span>
                     </div>
                   </td>
 
