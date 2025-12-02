@@ -18,6 +18,7 @@ export interface AdCampaign {
   spend?: number;
   roas?: number;
   revenue?: number;
+  metaLeads?: number;
 }
 
 export enum JourneyStage {

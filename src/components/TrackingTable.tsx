@@ -99,6 +99,7 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                 <>
                   <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">Investimento</th>
                   <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">ROAS</th>
+                  <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center text-blue-500">Meta Leads</th>
                 </>
               )}
               {labels.map((label, index) => (
@@ -150,6 +151,9 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                             </span>
                           );
                         })()}
+                      </td>
+                      <td className="px-4 py-3 md:px-6 md:py-4 text-center text-blue-500 font-bold">
+                        {formatNumber(ad.metaLeads || 0)}
                       </td>
                     </>
                   )}

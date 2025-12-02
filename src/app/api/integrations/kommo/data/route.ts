@@ -66,12 +66,13 @@ export async function GET(req: NextRequest) {
 
       // Tentar encontrar correspondência exata ou parcial
       const match = metaCampaigns.find((mCamp: any) =>
-        mCamp.campaignName.trim().toLowerCase() === kName ||
-        kName.includes(mCamp.campaignName.trim().toLowerCase()) ||
-        mCamp.campaignName.trim().toLowerCase().includes(kName)
+        mCamp.name.trim().toLowerCase() === kName ||
+        kName.includes(mCamp.name.trim().toLowerCase()) ||
+        mCamp.name.trim().toLowerCase().includes(kName)
       );
 
-      const spend = match ? match.totalSpend : 0;
+      const spend = match ? match.spend : 0;
+      const metaLeads = match ? match.metaLeads : 0;
 
       // Calcular Receita Total do Kommo (assumindo stage5 como venda/receita ou somando revenue se tivéssemos)
       // O serviço kommoService atual não retorna 'revenue' explícito no objeto AdCampaign, 
@@ -82,6 +83,7 @@ export async function GET(req: NextRequest) {
       return {
         ...kCamp,
         spend: spend,
+        metaLeads: metaLeads,
         roas: 0 // O cálculo do ROAS depende da receita, que é calculada dinamicamente no frontend. Deixaremos 0 aqui.
       };
     });

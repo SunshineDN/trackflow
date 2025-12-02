@@ -46,14 +46,26 @@ export async function fetchMetaCampaigns(adAccountId: string, since: string, unt
         totalLeads: row.leads,
       });
     } else {
-      existing.totalSpend += row.spend;
-      existing.totalImpressions += row.impressions;
-      existing.totalClicks += row.clicks;
       existing.totalLeads += row.leads;
     }
   }
 
-  return Array.from(map.values());
+  return Array.from(map.values()).map(c => ({
+    id: c.campaignId,
+    name: c.campaignName,
+    status: 'active', // Default status, could be fetched if needed
+    data: {
+      stage1: c.totalImpressions,
+      stage2: c.totalClicks,
+      stage3: c.totalLeads,
+      stage4: 0,
+      stage5: 0
+    },
+    spend: c.totalSpend,
+    roas: 0,
+    revenue: 0,
+    metaLeads: c.totalLeads
+  }));
 }
 
 import { CampaignHierarchy } from "@/types";
