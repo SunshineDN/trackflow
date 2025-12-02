@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     // 3. Mesclar dados (Left Join: Kommo <- Meta)
     const usedMetaIds = new Set<string>();
 
-    const enrichedCampaigns = kommoCampaigns.map(kCamp => {
+    let enrichedCampaigns = kommoCampaigns.map(kCamp => {
       // Normalizar nomes para comparação (remover espaços extras, lowercase)
       const kName = kCamp.name.trim().toLowerCase();
 
@@ -100,6 +100,28 @@ export async function GET(req: NextRequest) {
         metaLeads: metaLeads,
         roas: 0 // O cálculo do ROAS depende da receita, que é calculada dinamicamente no frontend. Deixaremos 0 aqui.
       };
+    });
+
+    // 4. Adicionar campanhas do Meta que não foram correspondidas (para garantir que o investimento total esteja correto)
+    metaCampaigns.forEach((mCamp: any) => {
+      if (!usedMetaIds.has(mCamp.id)) {
+        enrichedCampaigns.push({
+          id: mCamp.id,
+          name: mCamp.name,
+          status: mCamp.status || 'active',
+          data: {
+            stage1: 0,
+            stage2: 0,
+            stage3: 0,
+            stage4: 0,
+            stage5: 0
+          },
+          spend: mCamp.spend,
+          metaLeads: mCamp.metaLeads,
+          roas: 0,
+          revenue: 0
+        });
+      }
     });
 
     return NextResponse.json({ campaigns: enrichedCampaigns });
