@@ -83,6 +83,9 @@ export async function GET(req: NextRequest) {
 
       if (match) {
         usedMetaIds.add(match.id);
+      } else {
+        // Strict Intersection: If no match, exclude this campaign
+        return null;
       }
 
       const spend = match ? match.spend : 0;
@@ -100,7 +103,7 @@ export async function GET(req: NextRequest) {
         metaLeads: metaLeads,
         roas: 0 // O cálculo do ROAS depende da receita, que é calculada dinamicamente no frontend. Deixaremos 0 aqui.
       };
-    });
+    }).filter(Boolean); // Remove nulls
 
     return NextResponse.json({ campaigns: enrichedCampaigns });
   } catch (error) {

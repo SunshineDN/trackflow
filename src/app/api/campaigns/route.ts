@@ -127,20 +127,20 @@ export async function GET(req: NextRequest) {
                             usedAdIds.add(adMatch.id);
                             adMatch.spend += mAd.spend;
                             adMatch.metaLeads = mAd.metaLeads;
-                          } else {
-                            adSetMatch.children!.push(mAd);
                           }
+                          // Strict Intersection: Do not append unmatched Ads
                         });
                       }
-                    } else {
-                      match.children!.push(mAdSet);
                     }
+                    // Strict Intersection: Do not append unmatched AdSets
                   });
                 }
-              } else {
-                campaigns.push(mCamp);
               }
+              // Strict Intersection: Do not append unmatched Meta Campaigns
             });
+
+            // Filter to keep ONLY matched Kommo campaigns
+            campaigns = campaigns.filter(c => usedKommoIds.has(c.id));
           } else {
             campaigns = metaData;
           }
