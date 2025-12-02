@@ -102,28 +102,6 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 4. Adicionar campanhas do Meta que não foram correspondidas (Full Outer Join / Union)
-    metaCampaigns.forEach((mCamp: any) => {
-      if (!usedMetaIds.has(mCamp.id)) {
-        enrichedCampaigns.push({
-          id: mCamp.id,
-          name: mCamp.name,
-          status: mCamp.status || 'active',
-          data: {
-            stage1: 0,
-            stage2: 0,
-            stage3: 0,
-            stage4: 0,
-            stage5: 0
-          },
-          spend: mCamp.spend,
-          metaLeads: mCamp.metaLeads,
-          roas: 0,
-          revenue: 0
-        });
-      }
-    });
-
     return NextResponse.json({ campaigns: enrichedCampaigns });
   } catch (error) {
     console.error("Erro ao buscar dados do Kommo:", error);
