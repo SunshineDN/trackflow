@@ -172,8 +172,10 @@ const HomeContent = () => {
         try {
             const since = dateRange.from.toISOString();
             const until = dateRange.to.toISOString();
+            const sinceLocal = format(dateRange.from, 'yyyy-MM-dd');
+            const untilLocal = format(dateRange.to, 'yyyy-MM-dd');
 
-            const res = await fetch(`/api/integrations/kommo/data?since=${since}&until=${until}`);
+            const res = await fetch(`/api/integrations/kommo/data?since=${since}&until=${until}&sinceLocal=${sinceLocal}&untilLocal=${untilLocal}`);
             if (res.ok) {
                 const data = await res.json();
                 const campaigns = data.campaigns;

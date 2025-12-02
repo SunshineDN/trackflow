@@ -38,17 +38,22 @@ export async function GET(req: NextRequest) {
     // 1. Buscar dados do Kommo
     const kommoCampaigns = await fetchKommoData(subdomain, journeyMap, dateRange);
 
+    const sinceLocal = searchParams.get("sinceLocal");
+    const untilLocal = searchParams.get("untilLocal");
+
     // 2. Buscar dados do Meta (se houver conta vinculada)
     let metaCampaigns: any[] = [];
     if (adAccountId && since && until) {
       try {
         const sinceDate = new Date(since);
         const untilDate = new Date(until);
-        // Meta service expects yyyy-MM-dd
-        const sinceStr = sinceDate.toISOString().split('T')[0];
-        const untilStr = untilDate.toISOString().split('T')[0];
 
-        metaCampaigns = await fetchMetaCampaigns(adAccountId, sinceStr, untilStr);
+        // Meta service expects yyyy-MM-dd
+        // Use provided local dates if available to avoid timezone shifts
+        const metaSince = sinceLocal || sinceDate.toISOString().split('T')[0];
+        const metaUntil = untilLocal || untilDate.toISOString().split('T')[0];
+
+        metaCampaigns = await fetchMetaCampaigns(adAccountId, metaSince, metaUntil);
       } catch (err) {
         console.error("Erro ao buscar dados do Meta para fusão:", err);
       }

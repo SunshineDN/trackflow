@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
   const source = searchParams.get("source") || "KOMMO";
   const since = searchParams.get("since");
   const until = searchParams.get("until");
+  const sinceLocal = searchParams.get("sinceLocal");
+  const untilLocal = searchParams.get("untilLocal");
 
   if (!since || !until) {
     return NextResponse.json({ error: "Período inválido" }, { status: 400 });
@@ -52,7 +54,15 @@ export async function GET(req: NextRequest) {
     if (source === "META" || source === "HYBRID") {
       if (session.user.metaAdAccount?.adAccountId) {
         try {
-          const metaData = await fetchMetaHierarchy(session.user.metaAdAccount.adAccountId, since, until);
+          // Meta service expects yyyy-MM-dd
+          const sinceDate = new Date(since);
+          const untilDate = new Date(until);
+
+          // Use provided local dates if available to avoid timezone shifts
+          const metaSince = sinceLocal || sinceDate.toISOString().split('T')[0];
+          const metaUntil = untilLocal || untilDate.toISOString().split('T')[0];
+
+          const metaData = await fetchMetaHierarchy(session.user.metaAdAccount.adAccountId, metaSince, metaUntil);
 
           if (source === "HYBRID") {
             // Merge logic: Try to match by name
