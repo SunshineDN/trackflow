@@ -66,6 +66,8 @@ const SyncButton = ({ session, onSyncSuccess, dateRange }: { session: any, onSyn
     );
 };
 
+import { usePersistentState } from '@/hooks/usePersistentState';
+
 const HomeContent = () => {
     const { data: session, status } = useSession();
     const router = useRouter();
@@ -82,13 +84,25 @@ const HomeContent = () => {
     const [isLoadingData, setIsLoadingData] = useState(true);
 
     const [integrationConfig, setIntegrationConfig] = useState<{ isActive: boolean, journeyMap: string[] } | null>(null);
-    const [dataSource, setDataSource] = useState<'KOMMO' | 'META' | 'HYBRID'>('KOMMO');
 
-    // Estado do filtro de data (Padrão: Últimos 30 dias)
-    const [dateRange, setDateRange] = useState<DateRange>({
-        from: subDays(new Date(), 30),
-        to: new Date(),
-    });
+    // Persist Data Source
+    const [dataSource, setDataSource] = usePersistentState<'KOMMO' | 'META' | 'HYBRID'>('dashboard_dataSource', 'KOMMO');
+
+    // Persist Date Range
+    const [dateRange, setDateRange] = usePersistentState<DateRange>(
+        'dashboard_dateRange',
+        {
+            from: subDays(new Date(), 30),
+            to: new Date(),
+        },
+        (stored) => {
+            const parsed = JSON.parse(stored);
+            return {
+                from: new Date(parsed.from),
+                to: new Date(parsed.to),
+            };
+        }
+    );
 
     useEffect(() => {
         if (searchParams.get('integration_success') === 'true') {

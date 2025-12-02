@@ -10,6 +10,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { CampaignHierarchyTable } from '@/components/CampaignHierarchyTable';
 import { CampaignHierarchy } from '@/types';
 
+import { usePersistentState } from '@/hooks/usePersistentState';
+
 const CampaignsContent = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -19,11 +21,24 @@ const CampaignsContent = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [dataSource, setDataSource] = useState<'KOMMO' | 'META' | 'HYBRID'>('KOMMO');
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  });
+  // Persist Data Source
+  const [dataSource, setDataSource] = usePersistentState<'KOMMO' | 'META' | 'HYBRID'>('dashboard_dataSource', 'KOMMO');
+
+  // Persist Date Range
+  const [dateRange, setDateRange] = usePersistentState<DateRange>(
+    'dashboard_dateRange',
+    {
+      from: subDays(new Date(), 30),
+      to: new Date(),
+    },
+    (stored) => {
+      const parsed = JSON.parse(stored);
+      return {
+        from: new Date(parsed.from),
+        to: new Date(parsed.to),
+      };
+    }
+  );
 
   const [campaigns, setCampaigns] = useState<CampaignHierarchy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
