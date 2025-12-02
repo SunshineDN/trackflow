@@ -38,31 +38,59 @@ type Preset = {
 
 const PRESETS: Preset[] = [
   {
-    label: 'Últimos 7 dias',
+    label: 'Hoje',
     getValue: () => ({
-      from: subDays(new Date(), 7),
-      to: new Date(),
+      from: startOfDay(new Date()),
+      to: endOfDay(new Date()),
     }),
   },
   {
-    label: 'Últimos 30 dias',
+    label: 'Ontem',
     getValue: () => ({
-      from: subDays(new Date(), 30),
-      to: new Date(),
+      from: startOfDay(subDays(new Date(), 1)),
+      to: endOfDay(subDays(new Date(), 1)),
     }),
   },
   {
     label: 'Esta semana',
     getValue: () => ({
-      from: startOfWeek(new Date(), { weekStartsOn: 1 }), // Segunda-feira
-      to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+      from: startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 })), // Segunda-feira
+      to: endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 })),
     }),
   },
   {
     label: 'Semana passada',
     getValue: () => ({
-      from: startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }),
-      to: endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }),
+      from: startOfDay(startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 })),
+      to: endOfDay(endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 })),
+    }),
+  },
+  {
+    label: 'Este mês',
+    getValue: () => ({
+      from: startOfDay(startOfMonth(new Date())),
+      to: endOfDay(endOfMonth(new Date())),
+    }),
+  },
+  {
+    label: 'Mês passado',
+    getValue: () => ({
+      from: startOfDay(startOfMonth(subMonths(new Date(), 1))),
+      to: endOfDay(endOfMonth(subMonths(new Date(), 1))),
+    }),
+  },
+  {
+    label: 'Últimos 7 dias',
+    getValue: () => ({
+      from: startOfDay(subDays(new Date(), 7)),
+      to: endOfDay(new Date()),
+    }),
+  },
+  {
+    label: 'Últimos 30 dias',
+    getValue: () => ({
+      from: startOfDay(subDays(new Date(), 30)),
+      to: endOfDay(new Date()),
     }),
   },
 ];
@@ -134,7 +162,11 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ date, setDate 
       [finalFrom, finalTo] = [finalTo, finalFrom];
     }
 
-    setDate({ from: finalFrom, to: finalTo });
+    // Garantir horário 00:00:00 -> 23:59:59
+    setDate({
+      from: startOfDay(finalFrom),
+      to: endOfDay(finalTo)
+    });
     setIsOpen(false);
   };
 
