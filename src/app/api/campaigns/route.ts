@@ -70,77 +70,87 @@ export async function GET(req: NextRequest) {
             // Note: Merging hierarchies is complex. For now, we'll append and let the user see both if names differ.
             // Or we can try a simple merge on Campaign Name.
 
-            // Helper for smart matching
-            const findMatch = (nodes: CampaignHierarchy[], target: CampaignHierarchy, usedIds: Set<string>) => {
+            // Helper for smart matching - Returns ALL matches
+            const findMatches = (nodes: CampaignHierarchy[], target: CampaignHierarchy, usedIds: Set<string>) => {
               // 1. Exact Match
-              let match = nodes.find(n => {
+              let matches = nodes.filter(n => {
                 if (usedIds.has(n.id)) return false;
                 return n.name.trim().toLowerCase() === target.name.trim().toLowerCase();
               });
 
               // 2. Smart Match (Contains)
-              if (!match) {
-                match = nodes.find(n => {
+              if (matches.length === 0) {
+                matches = nodes.filter(n => {
                   if (usedIds.has(n.id)) return false;
                   const nName = n.name.trim().toLowerCase();
                   const tName = target.name.trim().toLowerCase();
                   return nName.includes(tName) || tName.includes(nName);
                 });
               }
-
-              return match;
+              
+              return matches;
             };
 
-            const usedKommoIds = new Set<string>();
+            const usedMetaIds = new Set<string>();
+            const matchedKommoIds = new Set<string>();
 
-            metaData.forEach(mCamp => {
-              const match = findMatch(campaigns, mCamp, usedKommoIds);
+            campaigns.forEach(kCamp => {
+              const matches = findMatches(metaData, kCamp, usedMetaIds);
 
-              if (match) {
-                usedKommoIds.add(match.id);
-                // Merge Campaign Metrics
-                match.spend += mCamp.spend;
-                match.metaLeads = mCamp.metaLeads;
+              if (matches.length > 0) {
+                matchedKommoIds.add(kCamp.id);
+                matches.forEach(m => usedMetaIds.add(m.id));
 
-                // Merge AdSets
-                if (mCamp.children && mCamp.children.length > 0) {
-                  if (!match.children) match.children = [];
-                  const usedAdSetIds = new Set<string>();
+                // Sum metrics
+                kCamp.spend = (kCamp.spend || 0) + matches.reduce((s, m) => s + m.spend, 0);
+                kCamp.metaLeads = (kCamp.metaLeads || 0) + matches.reduce((s, m) => s + (m.metaLeads || 0), 0);
 
-                  mCamp.children.forEach(mAdSet => {
-                    const adSetMatch = findMatch(match.children!, mAdSet, usedAdSetIds);
+                // Merge Children (AdSets)
+                const allMetaAdSets: CampaignHierarchy[] = [];
+                matches.forEach(m => {
+                  if (m.children) allMetaAdSets.push(...m.children);
+                });
 
-                    if (adSetMatch) {
-                      usedAdSetIds.add(adSetMatch.id);
-                      adSetMatch.spend += mAdSet.spend;
-                      adSetMatch.metaLeads = mAdSet.metaLeads;
+                if (allMetaAdSets.length > 0) {
+                  if (!kCamp.children) kCamp.children = [];
+                  const usedMetaAdSetIds = new Set<string>();
 
-                      // Merge Ads
-                      if (mAdSet.children && mAdSet.children.length > 0) {
-                        if (!adSetMatch.children) adSetMatch.children = [];
-                        const usedAdIds = new Set<string>();
+                  kCamp.children.forEach(kAdSet => {
+                    const adSetMatches = findMatches(allMetaAdSets, kAdSet, usedMetaAdSetIds);
 
-                        mAdSet.children.forEach(mAd => {
-                          const adMatch = findMatch(adSetMatch.children!, mAd, usedAdIds);
+                    if (adSetMatches.length > 0) {
+                      adSetMatches.forEach(m => usedMetaAdSetIds.add(m.id));
+                      kAdSet.spend = (kAdSet.spend || 0) + adSetMatches.reduce((s, m) => s + m.spend, 0);
+                      kAdSet.metaLeads = (kAdSet.metaLeads || 0) + adSetMatches.reduce((s, m) => s + (m.metaLeads || 0), 0);
 
-                          if (adMatch) {
-                            usedAdIds.add(adMatch.id);
-                            adMatch.spend += mAd.spend;
-                            adMatch.metaLeads = mAd.metaLeads;
+                      // Merge Children (Ads)
+                      const allMetaAds: CampaignHierarchy[] = [];
+                      adSetMatches.forEach(m => {
+                        if (m.children) allMetaAds.push(...m.children);
+                      });
+
+                      if (allMetaAds.length > 0) {
+                        if (!kAdSet.children) kAdSet.children = [];
+                        const usedMetaAdIds = new Set<string>();
+
+                        kAdSet.children.forEach(kAd => {
+                          const adMatches = findMatches(allMetaAds, kAd, usedMetaAdIds);
+
+                          if (adMatches.length > 0) {
+                            adMatches.forEach(m => usedMetaAdIds.add(m.id));
+                            kAd.spend = (kAd.spend || 0) + adMatches.reduce((s, m) => s + m.spend, 0);
+                            kAd.metaLeads = (kAd.metaLeads || 0) + adMatches.reduce((s, m) => s + (m.metaLeads || 0), 0);
                           }
-                          // Strict Intersection: Do not append unmatched Ads
                         });
                       }
                     }
-                    // Strict Intersection: Do not append unmatched AdSets
                   });
                 }
               }
-              // Strict Intersection: Do not append unmatched Meta Campaigns
             });
 
             // Filter to keep ONLY matched Kommo campaigns
-            campaigns = campaigns.filter(c => usedKommoIds.has(c.id));
+            campaigns = campaigns.filter(c => matchedKommoIds.has(c.id));
           } else {
             campaigns = metaData;
           }

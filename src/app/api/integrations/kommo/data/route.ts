@@ -66,30 +66,31 @@ export async function GET(req: NextRequest) {
       // Normalizar nomes para comparação (remover espaços extras, lowercase)
       const kName = kCamp.name.trim().toLowerCase();
 
-      // Encontrar correspondência exata que ainda não foi usada
-      let match = metaCampaigns.find((mCamp: any) => {
+      // Encontrar TODAS as correspondências exatas que ainda não foram usadas
+      let matches = metaCampaigns.filter((mCamp: any) => {
         if (usedMetaIds.has(mCamp.id)) return false;
         return mCamp.name.trim().toLowerCase() === kName;
       });
 
-      // Se não houver correspondência exata, tentar "Smart Match" (contém)
-      if (!match) {
-        match = metaCampaigns.find((mCamp: any) => {
+      // Se não houver correspondência exata, tentar "Smart Match" (contém) - Agregando TODOS os matches
+      if (matches.length === 0) {
+        matches = metaCampaigns.filter((mCamp: any) => {
           if (usedMetaIds.has(mCamp.id)) return false;
           const mName = mCamp.name.trim().toLowerCase();
           return kName.includes(mName) || mName.includes(kName);
         });
       }
 
-      if (match) {
-        usedMetaIds.add(match.id);
+      if (matches.length > 0) {
+        matches.forEach((m: any) => usedMetaIds.add(m.id));
       } else {
         // Strict Intersection: If no match, exclude this campaign
         return null;
       }
 
-      const spend = match ? match.spend : 0;
-      const metaLeads = match ? match.metaLeads : 0;
+      // Somar métricas de todas as campanhas encontradas
+      const spend = matches.reduce((sum: number, m: any) => sum + (m.spend || 0), 0);
+      const metaLeads = matches.reduce((sum: number, m: any) => sum + (m.metaLeads || 0), 0);
 
       // Calcular Receita Total do Kommo (assumindo stage5 como venda/receita ou somando revenue se tivéssemos)
       // O serviço kommoService atual não retorna 'revenue' explícito no objeto AdCampaign, 
