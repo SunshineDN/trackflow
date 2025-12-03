@@ -18,6 +18,11 @@ export async function GET(req: NextRequest) {
             email: true,
             image: true,
             role: true,
+            phone: true,
+            birthDate: true,
+            address: true,
+            termsAccepted: true,
+            lgpdConsent: true,
         },
     });
 
@@ -36,7 +41,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, image } = body;
+    const { name, image, phone, birthDate, address, termsAccepted, lgpdConsent } = body;
 
     try {
         const updatedUser = await prisma.client.update({
@@ -44,6 +49,11 @@ export async function PUT(req: NextRequest) {
             data: {
                 name,
                 image,
+                phone,
+                birthDate: birthDate ? new Date(birthDate) : undefined,
+                address,
+                termsAccepted,
+                lgpdConsent,
             },
         });
 
@@ -52,8 +62,14 @@ export async function PUT(req: NextRequest) {
             name: updatedUser.name,
             email: updatedUser.email,
             image: updatedUser.image,
+            phone: updatedUser.phone,
+            birthDate: updatedUser.birthDate,
+            address: updatedUser.address,
+            termsAccepted: updatedUser.termsAccepted,
+            lgpdConsent: updatedUser.lgpdConsent,
         });
     } catch (error) {
+        console.error("Erro ao atualizar perfil:", error);
         return NextResponse.json(
             { error: "Erro ao atualizar perfil" },
             { status: 500 }

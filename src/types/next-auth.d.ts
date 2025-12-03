@@ -18,6 +18,14 @@ declare module "next-auth" {
                 name: string
                 status: string
             } | null
+
+            // Profile Fields
+            phone?: string | null
+            birthDate?: Date | null
+            address?: any | null
+            termsAccepted?: boolean
+            lgpdConsent?: boolean
+            isProfileComplete?: boolean
         } & DefaultSession["user"]
     }
 
@@ -32,6 +40,13 @@ declare module "next-auth" {
             name: string
             status: string
         } | null
+
+        // Profile Fields
+        phone?: string | null
+        birthDate?: Date | null
+        address?: any | null
+        termsAccepted?: boolean
+        lgpdConsent?: boolean
     }
 }
 
@@ -47,5 +62,13 @@ declare module "next-auth/jwt" {
             name: string
             status: string
         } | null
+
+        // Profile Fields
+        phone?: string | null
+        birthDate?: Date | null
+        address?: any | null
+        termsAccepted?: boolean
+        lgpdConsent?: boolean
+        isProfileComplete?: boolean
     }
 }

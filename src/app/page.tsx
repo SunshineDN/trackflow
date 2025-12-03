@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { LayoutDashboard, BarChart3, Target, Users, Settings, Bell, ChevronDown, LogOut, TrendingUp, Calendar, User, Search, RefreshCw, Layers, Menu, X, Moon, Sun } from "lucide-react";
+import { LayoutDashboard, BarChart3, Target, Users, Settings, Bell, ChevronDown, LogOut, TrendingUp, Calendar, User, Search, RefreshCw, Layers, Menu, X, Moon, Sun, Filter } from "lucide-react";
 import { STAGE_DESCRIPTIONS, STAGE_COLORS } from '@/constants';
 import { MetricCard } from '@/components/MetricCard';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
@@ -15,6 +15,9 @@ import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MetricSummary } from '@/types';
+import { usePersistentState } from '@/hooks/usePersistentState';
+import { Sidebar } from "@/components/Sidebar";
+import { Select } from "@/components/ui/Select";
 
 const SyncButton = ({ session, onSyncSuccess, dateRange }: { session: any, onSyncSuccess?: () => void, dateRange: DateRange }) => {
     const [isSyncing, setIsSyncing] = useState(false);
@@ -66,8 +69,6 @@ const SyncButton = ({ session, onSyncSuccess, dateRange }: { session: any, onSyn
     );
 };
 
-import { usePersistentState } from '@/hooks/usePersistentState';
-
 const dateRangeDeserializer = (stored: string) => {
     const parsed = JSON.parse(stored);
     return {
@@ -91,6 +92,9 @@ const HomeContent = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(true);
 
+    const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
+    const [selectedAccount, setSelectedAccount] = useState<any>(null);
+
     const [integrationConfig, setIntegrationConfig] = useState<{ isActive: boolean, journeyMap: string[] } | null>(null);
 
     // Persist Data Source
@@ -113,15 +117,35 @@ const HomeContent = () => {
         }
     }, [searchParams, router, showToast]);
 
+    // Fetch Accounts
+    useEffect(() => {
+        if (status === "authenticated") {
+            fetch('/api/accounts')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setAvailableAccounts(data);
+                        // Default to own account if not set or if current selection is invalid
+                        if (!selectedAccount || !data.find(a => a.id === selectedAccount.id)) {
+                            const ownAccount = data.find(a => a.id === session.user.clientId);
+                            setSelectedAccount(ownAccount || data[0]);
+                        }
+                    }
+                })
+                .catch(err => console.error("Erro ao buscar contas:", err));
+        }
+    }, [status, session]);
+
     useEffect(() => {
         if (status === "unauthenticated") {
             router.push("/auth/login");
-        } else if (status === "authenticated") {
+        } else if (status === "authenticated" && selectedAccount) {
             checkIntegrationAndFetch();
         }
-    }, [status, session, router, dateRange, dataSource]); // Re-fetch when dataSource changes
+    }, [status, session, router, dateRange, dataSource, selectedAccount]);
 
     const checkIntegrationAndFetch = async () => {
+        if (!selectedAccount) return;
         setIsLoadingData(true);
 
         // 1. Verificar status da integração Kommo
@@ -129,7 +153,7 @@ const HomeContent = () => {
         let journeyMap: string[] = [];
 
         try {
-            const res = await fetch('/api/integrations/kommo');
+            const res = await fetch(`/api/integrations/kommo?targetAccountId=${selectedAccount.id}`);
             if (res.ok) {
                 const config = await res.json();
                 if (config.isActive) {
@@ -168,6 +192,7 @@ const HomeContent = () => {
     };
 
     const fetchKommoDashboardData = async (journeyMap: string[]) => {
+        if (!selectedAccount) return;
         setIsLoadingData(true);
         try {
             const since = dateRange.from.toISOString();
@@ -175,7 +200,10 @@ const HomeContent = () => {
             const sinceLocal = format(dateRange.from, 'yyyy-MM-dd');
             const untilLocal = format(dateRange.to, 'yyyy-MM-dd');
 
-            const res = await fetch(`/api/integrations/kommo/data?since=${since}&until=${until}&sinceLocal=${sinceLocal}&untilLocal=${untilLocal}`);
+            // Note: Kommo data API might also need targetAccountId if it fetches data directly. 
+            // Assuming /api/integrations/kommo/data uses session, we need to update it too.
+            // For now, let's pass it as query param.
+            const res = await fetch(`/api/integrations/kommo/data?since=${since}&until=${until}&sinceLocal=${sinceLocal}&untilLocal=${untilLocal}&targetAccountId=${selectedAccount.id}`);
             if (res.ok) {
                 const data = await res.json();
                 const campaigns = data.campaigns;
@@ -247,7 +275,9 @@ const HomeContent = () => {
     };
 
     const fetchMetaDashboardData = async () => {
-        if (!session?.user?.metaAdAccount?.adAccountId) {
+        const adAccount = selectedAccount?.metaAdAccounts?.[0];
+
+        if (!adAccount?.adAccountId) {
             setIsLoadingData(false);
             return;
         }
@@ -256,7 +286,7 @@ const HomeContent = () => {
             const since = format(dateRange.from, 'yyyy-MM-dd');
             const until = format(dateRange.to, 'yyyy-MM-dd');
 
-            const res = await fetch(`/api/meta/${session.user.metaAdAccount.adAccountId}/report/campaigns?since=${since}&until=${until}`);
+            const res = await fetch(`/api/meta/${adAccount.adAccountId}/report/campaigns?since=${since}&until=${until}`);
             if (res.ok) {
                 const data = await res.json();
                 const formattedCampaigns = data.campaigns.map((c: any) => ({
@@ -338,135 +368,17 @@ const HomeContent = () => {
 
     return (
         <div className="flex h-screen bg-background text-foreground font-sans transition-colors duration-300">
-            {/* Mobile Sidebar Overlay */}
-            {isMobileMenuOpen && (
-                <div
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                />
-            )}
-
-            {/* Mobile Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border text-card-foreground flex flex-col shadow-xl transition-transform duration-300 ease-in-out md:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                <div className="p-6 border-b border-border flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center shadow-lg shadow-brand-500/20">
-                            <LayoutDashboard className="text-white" size={20} />
-                        </div>
-                        <span className="text-xl font-bold text-white tracking-tight">TrackFlow</span>
-                    </div>
-                    <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400 hover:text-white">
-                        <X size={24} />
-                    </button>
-                </div>
-
-                <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2 mt-4">
-                        Analytics
-                    </div>
-
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-brand-600/10 text-brand-400 rounded-lg border border-brand-600/20 transition-all group">
-                        <BarChart3 size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Dashboard Geral</span>
-                    </a>
-
-                    <a href="/campaigns" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-                        <Target size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Campanhas</span>
-                    </a>
-
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-                        <Users size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Públicos</span>
-                    </a>
-
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2 mt-8">
-                        Configurações
-                    </div>
-
-                    <a href="/integrations" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-                        <Settings size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Integrações</span>
-                    </a>
-
-                    {session.user.role === "ADMIN" && (
-                        <a
-                            href="/admin/users"
-                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group mt-2"
-                        >
-                            <Users size={18} className="group-hover:scale-110 transition-transform" />
-                            <span className="font-medium">Gestão de Usuários</span>
-                        </a>
-                    )}
-                </nav>
-            </aside>
-
-            {/* Desktop Sidebar */}
-            <aside className="w-64 bg-card border-r border-border text-card-foreground flex flex-col shadow-xl z-20 hidden md:flex glass shrink-0">
-                <div className="p-6 border-b border-border flex items-center gap-3">
-                    <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center shadow-lg shadow-brand-500/20">
-                        <LayoutDashboard className="text-white" size={20} />
-                    </div>
-                    <span className="text-xl font-bold text-white tracking-tight">TrackFlow</span>
-                </div>
-
-                <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2 mt-4">
-                        Analytics
-                    </div>
-
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-brand-600/10 text-brand-400 rounded-lg border border-brand-600/20 transition-all group">
-                        <BarChart3 size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Dashboard Geral</span>
-                    </a>
-
-                    <a href="/campaigns" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-                        <Target size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Campanhas</span>
-                    </a>
-
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-                        <Users size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Públicos</span>
-                    </a>
-
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2 mt-8">
-                        Configurações
-                    </div>
-
-                    <a href="/integrations" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-                        <Settings size={18} className="group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Integrações</span>
-                    </a>
-
-                    {session.user.role === "ADMIN" && (
-                        <a
-                            href="/admin/users"
-                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group mt-2"
-                        >
-                            <Users size={18} className="group-hover:scale-110 transition-transform" />
-                            <span className="font-medium">Gestão de Usuários</span>
-                        </a>
-                    )}
-                </nav>
-
-                <div className="p-4 border-t border-border">
-                    <div className="bg-card/50 rounded-xl p-4 border border-border">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2 bg-brand-500/20 rounded-lg">
-                                <TrendingUp size={16} className="text-brand-400" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground">Meta Diária</p>
-                                <p className="text-sm font-bold text-foreground">85% Atingida</p>
-                            </div>
-                        </div>
-                        <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
-                            <div className="bg-brand-500 h-1.5 rounded-full w-[85%] shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
-                        </div>
-                    </div>
-                </div>
-            </aside>
+            {/* Sidebar Component */}
+            <Sidebar
+                isOpen={isMobileMenuOpen}
+                onClose={() => setIsMobileMenuOpen(false)}
+                currentAccount={selectedAccount || { id: session.user.clientId, name: session.user.name, image: session.user.image }}
+                availableAccounts={availableAccounts.length > 0 ? availableAccounts : [{ id: session.user.clientId, name: session.user.name, image: session.user.image }]}
+                onAccountChange={(id) => {
+                    const account = availableAccounts.find(a => a.id === id);
+                    if (account) setSelectedAccount(account);
+                }}
+            />
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-screen relative overflow-x-hidden">
@@ -572,28 +484,40 @@ const HomeContent = () => {
                             </div>
 
                             {/* Data Source Selector - Hero Position */}
-                            {integrationConfig?.isActive && (
-                                <div className="flex items-center bg-secondary/50 rounded-lg p-1 self-start md:self-auto border border-border glass">
-                                    <button
-                                        onClick={() => { setDataSource('KOMMO'); setSelectedCampaignId(null); }}
-                                        className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${dataSource === 'KOMMO' ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                                    >
-                                        Kommo
-                                    </button>
-                                    <button
-                                        onClick={() => { setDataSource('META'); setSelectedCampaignId(null); }}
-                                        className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${dataSource === 'META' ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                                    >
-                                        Meta
-                                    </button>
-                                    <button
-                                        onClick={() => { setDataSource('HYBRID'); setSelectedCampaignId(null); }}
-                                        className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${dataSource === 'HYBRID' ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                                    >
-                                        Kommo + Meta
-                                    </button>
-                                </div>
-                            )}
+                            {(() => {
+                                const options = [];
+
+                                // 1. Meta (Always first if available)
+                                if (selectedAccount?.metaAdAccounts?.length > 0) {
+                                    options.push({ value: 'META', label: 'Meta', icon: <LayoutDashboard size={16} /> });
+                                }
+
+                                // 2. Integrations (Kommo)
+                                if (integrationConfig?.isActive) {
+                                    options.push({ value: 'KOMMO', label: 'Kommo', icon: <Filter size={16} /> });
+                                }
+
+                                // 3. Hybrid (If both available)
+                                if (selectedAccount?.metaAdAccounts?.length > 0 && integrationConfig?.isActive) {
+                                    options.push({ value: 'HYBRID', label: 'Kommo + Meta', icon: <TrendingUp size={16} /> });
+                                }
+
+                                if (options.length === 0) return null;
+
+                                return (
+                                    <div className="w-48">
+                                        <Select
+                                            options={options}
+                                            value={dataSource}
+                                            onChange={(val) => {
+                                                setDataSource(val as any);
+                                                setSelectedCampaignId(null);
+                                            }}
+                                            placeholder="Fonte de Dados"
+                                        />
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Metrics Grid */}

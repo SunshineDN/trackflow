@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { LayoutDashboard, BarChart3, Target, Users, Settings, Bell, Menu, Search, Sun, Moon, LogOut, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, BarChart3, Target, Users, Settings, Bell, Menu, Search, Sun, Moon, LogOut, User as UserIcon, Filter, TrendingUp } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
@@ -9,6 +9,8 @@ import { subDays, format } from 'date-fns';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CampaignHierarchyTable } from '@/components/CampaignHierarchyTable';
 import { CampaignHierarchy } from '@/types';
+import { Sidebar } from "@/components/Sidebar";
+import { Select } from "@/components/ui/Select";
 
 import { usePersistentState } from '@/hooks/usePersistentState';
 
@@ -46,15 +48,41 @@ const CampaignsContent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [integrationConfig, setIntegrationConfig] = useState<{ isActive: boolean, journeyMap: string[] } | null>(null);
 
+  const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
+
+  // Fetch Accounts
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchAccounts();
+    }
+  }, [status]);
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await fetch('/api/accounts');
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableAccounts(data);
+        if (data.length > 0) {
+          setSelectedAccount(data[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao buscar contas:", error);
+    }
+  };
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/login");
-    } else if (status === "authenticated") {
+    } else if (status === "authenticated" && selectedAccount) {
       checkIntegrationAndFetch();
     }
-  }, [status, session, router, dateRange, dataSource]);
+  }, [status, session, router, dateRange, dataSource, selectedAccount]);
 
   const checkIntegrationAndFetch = async () => {
+    if (!selectedAccount) return;
     setIsLoading(true);
 
     // 1. Verificar status da integração Kommo (se necessário para labels ou validação)
@@ -62,7 +90,7 @@ const CampaignsContent = () => {
     let journeyMap: string[] = [];
 
     try {
-      const res = await fetch('/api/integrations/kommo');
+      const res = await fetch(`/api/integrations/kommo?targetAccountId=${selectedAccount.id}`);
       if (res.ok) {
         const config = await res.json();
         if (config.isActive) {
@@ -93,7 +121,7 @@ const CampaignsContent = () => {
         setDataSource('META'); // Update UI
       }
 
-      const res = await fetch(`/api/campaigns?source=${effectiveSource}&since=${since}&until=${until}&sinceLocal=${sinceLocal}&untilLocal=${untilLocal}`);
+      const res = await fetch(`/api/campaigns?source=${effectiveSource}&since=${since}&until=${until}&sinceLocal=${sinceLocal}&untilLocal=${untilLocal}&targetAccountId=${selectedAccount.id}`);
       if (res.ok) {
         const data = await res.json();
         setCampaigns(data.campaigns || []);
@@ -122,60 +150,17 @@ const CampaignsContent = () => {
         />
       )}
 
-      {/* Sidebar (Duplicated from page.tsx - ideally should be a component) */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border text-card-foreground flex flex-col shadow-xl transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 border-b border-border flex items-center justify-between md:justify-start md:gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center shadow-lg shadow-brand-500/20">
-              <LayoutDashboard className="text-white" size={20} />
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight">TrackFlow</span>
-          </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
-            <Menu size={24} />
-          </button>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2 mt-4">
-            Analytics
-          </div>
-
-          <a href="/" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-            <BarChart3 size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="font-medium">Dashboard Geral</span>
-          </a>
-
-          <a href="/campaigns" className="flex items-center gap-3 px-3 py-2.5 bg-brand-600/10 text-brand-400 rounded-lg border border-brand-600/20 transition-all group">
-            <Target size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="font-medium">Campanhas</span>
-          </a>
-
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-            <Users size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="font-medium">Públicos</span>
-          </a>
-
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2 mt-8">
-            Configurações
-          </div>
-
-          <a href="/integrations" className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group">
-            <Settings size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="font-medium">Integrações</span>
-          </a>
-
-          {session.user.role === "ADMIN" && (
-            <a
-              href="/admin/users"
-              className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all group mt-2"
-            >
-              <Users size={18} className="group-hover:scale-110 transition-transform" />
-              <span className="font-medium">Gestão de Usuários</span>
-            </a>
-          )}
-        </nav>
-      </aside>
+      {/* Sidebar */}
+      <Sidebar
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        availableAccounts={availableAccounts}
+        currentAccount={selectedAccount}
+        onAccountChange={(accountId) => {
+          const acc = availableAccounts.find(a => a.id === accountId);
+          if (acc) setSelectedAccount(acc);
+        }}
+      />
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen relative overflow-hidden">
@@ -272,28 +257,40 @@ const CampaignsContent = () => {
             </div>
 
             {/* Data Source Selector */}
-            {integrationConfig?.isActive && (
-              <div className="flex items-center bg-secondary/50 rounded-lg p-1 self-start md:self-auto border border-border glass">
-                <button
-                  onClick={() => setDataSource('KOMMO')}
-                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${dataSource === 'KOMMO' ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                >
-                  Kommo
-                </button>
-                <button
-                  onClick={() => setDataSource('META')}
-                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${dataSource === 'META' ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                >
-                  Meta
-                </button>
-                <button
-                  onClick={() => setDataSource('HYBRID')}
-                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${dataSource === 'HYBRID' ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
-                >
-                  Kommo + Meta
-                </button>
-              </div>
-            )}
+            {/* Data Source Selector */}
+            {(() => {
+              const options = [];
+
+              // 1. Meta (Always first if available)
+              if (selectedAccount?.metaAdAccounts?.length > 0) {
+                options.push({ value: 'META', label: 'Meta', icon: <LayoutDashboard size={16} /> });
+              }
+
+              // 2. Integrations (Kommo)
+              if (integrationConfig?.isActive) {
+                options.push({ value: 'KOMMO', label: 'Kommo', icon: <Filter size={16} /> });
+              }
+
+              // 3. Hybrid (If both available)
+              if (selectedAccount?.metaAdAccounts?.length > 0 && integrationConfig?.isActive) {
+                options.push({ value: 'HYBRID', label: 'Kommo + Meta', icon: <TrendingUp size={16} /> });
+              }
+
+              if (options.length === 0) return null;
+
+              return (
+                <div className="w-48">
+                  <Select
+                    options={options}
+                    value={dataSource}
+                    onChange={(val) => {
+                      setDataSource(val as any);
+                    }}
+                    placeholder="Fonte de Dados"
+                  />
+                </div>
+              );
+            })()}
           </div>
 
           <CampaignHierarchyTable

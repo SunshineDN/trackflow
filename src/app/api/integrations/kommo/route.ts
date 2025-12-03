@@ -47,17 +47,26 @@ export async function POST(req: NextRequest) {
   }
 }
 
+import { verifyAccountAccess } from "@/lib/access-control";
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
 
-  const clientId = session.user.clientId;
+  const { searchParams } = new URL(req.url);
+  const targetAccountId = searchParams.get("targetAccountId") || session.user.clientId;
 
   try {
+    const hasAccess = await verifyAccountAccess(session.user.clientId, targetAccountId);
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
+
     const config = await prisma.integrationConfig.findFirst({
-      where: { clientId, provider: "KOMMO" },
+      where: { clientId: targetAccountId, provider: "KOMMO" },
     });
 
     return NextResponse.json(config || { isActive: false, config: {}, journeyMap: [] });

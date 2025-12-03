@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyAccountAccess } from "@/lib/access-control";
 
 export async function GET(
     req: NextRequest,
@@ -12,21 +13,31 @@ export async function GET(
         return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const clientId = session.user.clientId;
     const { adAccountId } = await params;
 
     const { searchParams } = new URL(req.url);
     const since = searchParams.get("since") || "2024-01-01";
     const until = searchParams.get("until") || "2024-01-31";
 
+    // Find the ad account first to identify the owner
     const metaAccount = await prisma.metaAdAccount.findFirst({
-        where: { clientId, adAccountId },
+        where: { adAccountId },
     });
 
     if (!metaAccount) {
         return NextResponse.json(
-            { error: "Conta não encontrada para este cliente" },
+            { error: "Conta de anúncios não encontrada." },
             { status: 404 }
+        );
+    }
+
+    // Verify access to the owner of the ad account
+    const hasAccess = await verifyAccountAccess(session.user.clientId, metaAccount.clientId);
+
+    if (!hasAccess) {
+        return NextResponse.json(
+            { error: "Acesso negado a esta conta de anúncios." },
+            { status: 403 }
         );
     }
 

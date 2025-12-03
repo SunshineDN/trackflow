@@ -21,15 +21,29 @@ model Client {
   image          String?
   role           Role                @default(MEMBER)
   isActive       Boolean             @default(true)
-  metaAdAccount  MetaAdAccount?
+  
+  // Profile Fields
+  phone          String?
+  birthDate      DateTime?
+  address        Json?               // { street, number, neighborhood, city, state, zip }
+  termsAccepted  Boolean             @default(false)
+  lgpdConsent    Boolean             @default(false)
+
+  // Relations
+  metaAdAccounts MetaAdAccount[]
   integrations   IntegrationConfig[]
+  
+  // Sharing
+  sentInvites     AccountInvite[]    @relation("SentInvites")
+  receivedInvites AccountInvite[]    @relation("ReceivedInvites")
+
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
 
 model MetaAdAccount {
   id             String              @id @default(cuid())
-  clientId       String              @unique
+  clientId       String
   client         Client              @relation(fields: [clientId], references: [id])
   adAccountId    String
   name           String?
@@ -80,4 +94,25 @@ model MetaAdInsightDaily {
   @@index([campaignId])
   @@index([adId])
   @@index([date])
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model AccountInvite {
+  id          String       @id @default(cuid())
+  ownerId     String
+  owner       Client       @relation("SentInvites", fields: [ownerId], references: [id])
+  guestId     String
+  guest       Client       @relation("ReceivedInvites", fields: [guestId], references: [id])
+  status      InviteStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([ownerId, guestId]) // Prevent duplicate invites between same users
+  @@index([ownerId])
+  @@index([guestId])
 }

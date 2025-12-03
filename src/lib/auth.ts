@@ -18,7 +18,7 @@ export const authOptions: NextAuthOptions = {
 
                 const client = await prisma.client.findUnique({
                     where: { email: credentials.email },
-                    include: { metaAdAccount: true }, // Incluir conta de anúncios
+                    include: { metaAdAccounts: true }, // Incluir contas de anúncios
                 });
 
                 if (!client) {
@@ -38,6 +38,8 @@ export const authOptions: NextAuthOptions = {
                     throw new Error("Usuário inativo.");
                 }
 
+                const primaryAdAccount = client.metaAdAccounts?.[0];
+
                 return {
                     id: client.id,
                     clientId: client.id,
@@ -46,11 +48,11 @@ export const authOptions: NextAuthOptions = {
                     role: client.role,
                     isActive: client.isActive,
                     image: client.image,
-                    metaAdAccount: client.metaAdAccount ? {
-                        id: client.metaAdAccount.id,
-                        adAccountId: client.metaAdAccount.adAccountId,
-                        name: client.metaAdAccount.name,
-                        status: client.metaAdAccount.status,
+                    metaAdAccount: primaryAdAccount ? {
+                        id: primaryAdAccount.id,
+                        adAccountId: primaryAdAccount.adAccountId,
+                        name: primaryAdAccount.name,
+                        status: primaryAdAccount.status,
                     } : null,
                 } as any;
             },
@@ -74,19 +76,39 @@ export const authOptions: NextAuthOptions = {
             if (token.clientId) {
                 const dbUser = await prisma.client.findUnique({
                     where: { id: token.clientId },
-                    include: { metaAdAccount: true },
+                    include: { metaAdAccounts: true }, // Updated to fetch all accounts
                 });
 
                 if (dbUser) {
-                    token.metaAdAccount = dbUser.metaAdAccount ? {
-                        id: dbUser.metaAdAccount.id,
-                        adAccountId: dbUser.metaAdAccount.adAccountId,
-                        name: dbUser.metaAdAccount.name || "",
-                        status: dbUser.metaAdAccount.status,
+                    // Select the first account or handle selection logic later
+                    const primaryMetaAccount = dbUser.metaAdAccounts[0];
+
+                    token.metaAdAccount = primaryMetaAccount ? {
+                        id: primaryMetaAccount.id,
+                        adAccountId: primaryMetaAccount.adAccountId,
+                        name: primaryMetaAccount.name || "",
+                        status: primaryMetaAccount.status,
                     } : null;
+
                     token.role = dbUser.role;
                     token.isActive = dbUser.isActive;
                     token.image = dbUser.image;
+
+                    // Profile Fields
+                    token.phone = dbUser.phone;
+                    token.birthDate = dbUser.birthDate;
+                    token.address = dbUser.address;
+                    token.termsAccepted = dbUser.termsAccepted;
+                    token.lgpdConsent = dbUser.lgpdConsent;
+
+                    // Calculate Profile Completeness
+                    token.isProfileComplete = !!(
+                        dbUser.phone &&
+                        dbUser.birthDate &&
+                        dbUser.address &&
+                        dbUser.termsAccepted &&
+                        dbUser.lgpdConsent
+                    );
                 }
             }
 
@@ -103,6 +125,12 @@ export const authOptions: NextAuthOptions = {
                 session.user.isActive = token.isActive;
                 session.user.image = token.image;
                 session.user.metaAdAccount = token.metaAdAccount;
+
+                // New Fields
+                session.user.phone = token.phone;
+                session.user.birthDate = token.birthDate;
+                session.user.address = token.address;
+                session.user.isProfileComplete = token.isProfileComplete;
             }
             return session;
         },

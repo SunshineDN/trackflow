@@ -4,6 +4,8 @@ import { syncMetaInsightsDaily } from "@/lib/meta/syncInsightsDaily";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+import { verifyAccountAccess } from "@/lib/access-control";
+
 export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ adAccountId: string }> }
@@ -14,21 +16,31 @@ export async function POST(
         return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const clientId = session.user.clientId;
     const { adAccountId } = await params;
 
     const body = await req.json().catch(() => ({}));
     const since = body.since || "2024-01-01";
     const until = body.until || "2024-01-31";
 
+    // Find the ad account first to identify the owner
     const metaAccount = await prisma.metaAdAccount.findFirst({
-        where: { clientId, adAccountId },
+        where: { adAccountId },
     });
 
     if (!metaAccount) {
         return NextResponse.json(
-            { error: "Conta de anúncios não encontrada para este cliente" },
+            { error: "Conta de anúncios não encontrada." },
             { status: 404 }
+        );
+    }
+
+    // Verify access to the owner of the ad account
+    const hasAccess = await verifyAccountAccess(session.user.clientId, metaAccount.clientId);
+
+    if (!hasAccess) {
+        return NextResponse.json(
+            { error: "Acesso negado a esta conta de anúncios." },
+            { status: 403 }
         );
     }
 
