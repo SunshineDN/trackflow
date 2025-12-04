@@ -153,7 +153,17 @@ export async function GET(req: NextRequest) {
             });
 
             // Filter to keep ONLY matched Kommo campaigns
-            campaigns = campaigns.filter(c => matchedKommoIds.has(c.id));
+            // campaigns = campaigns.filter(c => matchedKommoIds.has(c.id));
+
+            // NEW LOGIC: Keep matched Kommo campaigns AND append orphan Meta campaigns
+            const matchedKommoCampaigns = campaigns.filter(c => matchedKommoIds.has(c.id));
+
+            const orphanMetaCampaigns = metaData.filter(m => !usedMetaIds.has(m.id));
+
+            // Add orphans to the list
+            // We need to ensure they match the CampaignHierarchy type
+            // MetaData already matches CampaignHierarchy, so we can just append
+            campaigns = [...matchedKommoCampaigns, ...orphanMetaCampaigns];
           } else {
             campaigns = metaData;
           }

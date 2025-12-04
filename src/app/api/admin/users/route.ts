@@ -179,7 +179,7 @@ export async function DELETE(req: NextRequest) {
             return NextResponse.json({ error: "ID do usuário obrigatório" }, { status: 400 });
         }
 
-        if (id === session.user.id) {
+        if (id === session.user.clientId) {
             return NextResponse.json({ error: "Você não pode excluir sua própria conta" }, { status: 400 });
         }
 

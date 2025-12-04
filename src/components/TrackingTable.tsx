@@ -21,6 +21,8 @@ interface TrackingTableProps {
   journeyLabels?: string[];
   dataSource?: 'KOMMO' | 'META' | 'HYBRID';
   loading?: boolean;
+  goals?: any[];
+  selectedGoalType?: 'ROAS' | 'CPA';
 }
 
 const formatNumber = (num: number) => {
@@ -31,7 +33,7 @@ const formatCurrency = (num: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
 };
 
-export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, selectedId, journeyLabels, dataSource = 'META', loading }) => {
+export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, selectedId, journeyLabels, dataSource = 'META', loading, goals = [], selectedGoalType = 'ROAS' }) => {
   const labels = journeyLabels || ["Impressões", "Cliques", "Leads", "Checkout", "Vendas"];
   const { showToast } = useToast();
 
@@ -41,14 +43,50 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
     showToast(`"${text}" copiado!`, "success");
   };
 
+  const getGoalValue = (type: 'ROAS' | 'CPA', stageIndex?: number) => {
+    const safeGoals = Array.isArray(goals) ? goals : [];
+    const goal = safeGoals.find(g => g.type === type && (stageIndex === undefined || g.stageIndex === stageIndex));
+    // Defaults: ROAS 5, CPA 50
+    return goal ? goal.value : (type === 'ROAS' ? 5.0 : 50.0);
+  };
+
+  const getEvaluation = (campaign: AdCampaign) => {
+    const spend = campaign.spend || 0;
+
+    if (selectedGoalType === 'ROAS') {
+      const roas = spend > 0 ? (campaign.revenue || 0) / spend : 0;
+      const target = getGoalValue('ROAS');
+      if (roas > target) return { level: 'Bom', color: 'text-green-500', bg: 'bg-green-500/10', emoji: '🤩' };
+      if (roas === target) return { level: 'Aceitável', color: 'text-yellow-500', bg: 'bg-yellow-500/10', emoji: '😐' };
+      return { level: 'Crítico', color: 'text-red-500', bg: 'bg-red-500/10', emoji: '😟' };
+    } else {
+      // CPA (Lead - Stage 3 usually, or index 2)
+      // Let's assume CPA is for Leads (index 2) for now as per prompt example "Lead Qualificado"
+      // Or we can make it generic. The prompt says "Custo - Criado", "Custo - Qualificado".
+      // But the selector is simple. Let's use Leads (index 2) as default for "CPA" selection in this table context.
+      const leads = campaign.data.stage3 || 0; // Assuming stage3 is leads
+      const cpa = leads > 0 ? spend / leads : 0;
+      const target = getGoalValue('CPA', 2); // Stage index 2
+
+      // Lower CPA is better
+      if (cpa < target && cpa > 0) return { level: 'Bom', color: 'text-green-500', bg: 'bg-green-500/10', emoji: '🤩' };
+      if (cpa === target) return { level: 'Aceitável', color: 'text-yellow-500', bg: 'bg-yellow-500/10', emoji: '😐' };
+      return { level: 'Crítico', color: 'text-red-500', bg: 'bg-red-500/10', emoji: '😟' };
+    }
+  };
+
   if (loading) {
+    // ... skeleton code (omitted for brevity, keeping existing skeleton logic would be best but I'm replacing the whole component for cleanliness)
+    // Actually I should keep the skeleton.
     return (
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-muted-foreground">
+            {/* ... Skeleton Header ... */}
             <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground font-semibold tracking-wider">
               <tr>
                 <th scope="col" className="px-4 py-3 md:px-6 md:py-4">Campanha</th>
+                <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">Aval.</th>
                 {(dataSource === 'HYBRID' || dataSource === 'META') && (
                   <>
                     <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">Investimento</th>
@@ -67,6 +105,7 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
               {[...Array(5)].map((_, i) => (
                 <tr key={i}>
                   <td className="px-4 py-3 md:px-6 md:py-4"><Skeleton className="h-5 w-48" /></td>
+                  <td className="px-4 py-3 md:px-6 md:py-4 text-center"><Skeleton className="h-5 w-8 mx-auto" /></td>
                   {(dataSource === 'HYBRID' || dataSource === 'META') && (
                     <>
                       <td className="px-4 py-3 md:px-6 md:py-4 text-center"><Skeleton className="h-5 w-20 mx-auto" /></td>
@@ -95,6 +134,7 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
           <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground font-semibold tracking-wider">
             <tr>
               <th scope="col" className="px-4 py-3 md:px-6 md:py-4">Campanha</th>
+              <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center" title="Nível de Avaliação">Aval.</th>
               {(dataSource === 'HYBRID' || dataSource === 'META') && (
                 <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">Investimento</th>
               )}
@@ -116,6 +156,8 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
           <tbody className="divide-y divide-border">
             {data.map((ad) => {
               const isSelected = selectedId === ad.id;
+              const evaluation = getEvaluation(ad);
+
               return (
                 <tr
                   key={ad.id}
@@ -137,6 +179,13 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                     </div>
                   </td>
 
+                  {/* Evaluation Emoji */}
+                  <td className="px-4 py-3 md:px-6 md:py-4 text-center text-lg">
+                    <Tooltip content={`Nível: ${evaluation.level}`} position="top">
+                      <span>{evaluation.emoji}</span>
+                    </Tooltip>
+                  </td>
+
                   {(dataSource === 'HYBRID' || dataSource === 'META') && (
                     <td className="px-4 py-3 md:px-6 md:py-4 text-center text-foreground font-medium">
                       {formatCurrency(ad.spend || 0)}
@@ -150,8 +199,7 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                           const spend = ad.spend || 0;
                           const roas = spend > 0 ? (ad.revenue || 0) / spend : 0;
                           return (
-                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${roas >= 1 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                              }`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${evaluation.color} ${evaluation.bg}`}>
                               {roas.toFixed(2)}x
                             </span>
                           );
@@ -167,9 +215,17 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                   {labels.map((label, index) => {
                     const stageKey = `stage${index + 1}` as keyof typeof ad.data;
                     const value = ad.data[stageKey];
+                    const spend = ad.spend || 0;
+                    const costPerStep = value > 0 ? spend / value : 0;
+
                     return (
                       <td key={index} className="px-4 py-3 md:px-6 md:py-4 text-center">
-                        <Tooltip content={label} position="top">
+                        <Tooltip content={
+                          <div className="text-center">
+                            <p className="font-bold">{label}</p>
+                            <p className="text-xs opacity-80">Custo: {formatCurrency(costPerStep)}</p>
+                          </div>
+                        } position="top">
                           <span className="text-muted-foreground cursor-help border-b border-dotted border-muted-foreground/50">
                             {formatNumber(value)}
                           </span>

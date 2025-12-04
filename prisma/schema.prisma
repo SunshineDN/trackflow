@@ -38,6 +38,9 @@ model Client {
   sentInvites     AccountInvite[]    @relation("SentInvites")
   receivedInvites AccountInvite[]    @relation("ReceivedInvites")
 
+  // Goals
+  goals           ClientGoal[]
+
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
@@ -116,4 +119,24 @@ model AccountInvite {
   @@unique([ownerId, guestId]) // Prevent duplicate invites between same users
   @@index([ownerId])
   @@index([guestId])
+}
+
+enum GoalType {
+  INVESTMENT
+  ROAS
+  CPA // Cost Per Action (Step)
+}
+
+model ClientGoal {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  type        GoalType
+  stageIndex  Int?     // Only for CPA goals (0 = Stage 1, 1 = Stage 2, etc.)
+  value       Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([clientId, type, stageIndex]) // Ensure one goal per type/stage per client
+  @@index([clientId])
 }

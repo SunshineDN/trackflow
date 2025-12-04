@@ -47,6 +47,7 @@ declare module "next-auth" {
         address?: any | null
         termsAccepted?: boolean
         lgpdConsent?: boolean
+        isProfileComplete?: boolean
     }
 }
 

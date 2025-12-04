@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 interface TooltipProps {
-  content: string;
+  content: any;
   children: React.ReactNode;
   position?: 'top' | 'bottom';
 }

@@ -18,9 +18,11 @@ interface Props {
   loading: boolean;
   journeyLabels?: string[]; // Labels for columns (I, II, III...)
   dataSource?: 'KOMMO' | 'META' | 'HYBRID';
+  goals?: any[];
+  selectedGoalType?: 'ROAS' | 'CPA';
 }
 
-const HierarchyRow = ({ node, level, journeyLabels, dataSource }: { node: CampaignHierarchy, level: number, journeyLabels?: string[], dataSource?: 'KOMMO' | 'META' | 'HYBRID' }) => {
+const HierarchyRow = ({ node, level, journeyLabels, dataSource, goals = [], selectedGoalType = 'ROAS' }: { node: CampaignHierarchy, level: number, journeyLabels?: string[], dataSource?: 'KOMMO' | 'META' | 'HYBRID', goals?: any[], selectedGoalType?: 'ROAS' | 'CPA' }) => {
   const [expanded, setExpanded] = useState(false);
   const { showToast } = useToast();
   const hasChildren = node.children && node.children.length > 0;
@@ -32,6 +34,36 @@ const HierarchyRow = ({ node, level, journeyLabels, dataSource }: { node: Campai
     navigator.clipboard.writeText(text);
     showToast(`"${text}" copiado!`, "success");
   };
+
+  const getGoalValue = (type: 'ROAS' | 'CPA', stageIndex?: number) => {
+    const safeGoals = Array.isArray(goals) ? goals : [];
+    const goal = safeGoals.find(g => g.type === type && (stageIndex === undefined || g.stageIndex === stageIndex));
+    // Defaults: ROAS 5, CPA 50
+    return goal ? goal.value : (type === 'ROAS' ? 5.0 : 50.0);
+  };
+
+  const getEvaluation = (campaign: CampaignHierarchy) => {
+    const spend = campaign.spend || 0;
+
+    if (selectedGoalType === 'ROAS') {
+      const roas = spend > 0 ? (campaign.revenue || 0) / spend : 0;
+      const target = getGoalValue('ROAS');
+      if (roas > target) return { level: 'Bom', color: 'text-green-500', bg: 'bg-green-500/10', emoji: '🤩' };
+      if (roas === target) return { level: 'Aceitável', color: 'text-yellow-500', bg: 'bg-yellow-500/10', emoji: '😐' };
+      return { level: 'Crítico', color: 'text-red-500', bg: 'bg-red-500/10', emoji: '😟' };
+    } else {
+      // CPA (Lead - Stage 3 usually, or index 2)
+      const leads = campaign.data.stage3 || 0;
+      const cpa = leads > 0 ? spend / leads : 0;
+      const target = getGoalValue('CPA', 2);
+
+      if (cpa < target && cpa > 0) return { level: 'Bom', color: 'text-green-500', bg: 'bg-green-500/10', emoji: '🤩' };
+      if (cpa === target) return { level: 'Aceitável', color: 'text-yellow-500', bg: 'bg-yellow-500/10', emoji: '😐' };
+      return { level: 'Crítico', color: 'text-red-500', bg: 'bg-red-500/10', emoji: '😟' };
+    }
+  };
+
+  const evaluation = getEvaluation(node);
 
   return (
     <>
@@ -69,6 +101,14 @@ const HierarchyRow = ({ node, level, journeyLabels, dataSource }: { node: Campai
             )}
           </div>
         </td>
+
+        {/* Evaluation Emoji */}
+        <td className="py-3 px-4 text-center text-lg">
+          <Tooltip content={`Nível: ${evaluation.level}`} position="top">
+            <span>{evaluation.emoji}</span>
+          </Tooltip>
+        </td>
+
         <td className="py-3 px-4 text-center">
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${node.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
             {node.status === 'active' ? 'Ativo' : 'Pausado'}
@@ -89,9 +129,17 @@ const HierarchyRow = ({ node, level, journeyLabels, dataSource }: { node: Campai
         {(journeyLabels || ["I", "II", "III", "IV", "V"]).map((label, index) => {
           const stageKey = `stage${index + 1}` as keyof typeof node.data;
           const value = node.data[stageKey];
+          const spend = node.spend || 0;
+          const costPerStep = value > 0 ? spend / value : 0;
+
           return (
             <td key={index} className="py-3 px-4 text-right font-mono text-sm text-foreground">
-              <Tooltip content={label} position="top">
+              <Tooltip content={
+                <div className="text-center">
+                  <p className="font-bold">{label}</p>
+                  <p className="text-xs opacity-80">Custo: {costPerStep.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
+              } position="top">
                 <span className="cursor-help border-b border-dotted border-muted-foreground/50">
                   {value.toLocaleString('pt-BR')}
                 </span>
@@ -108,18 +156,26 @@ const HierarchyRow = ({ node, level, journeyLabels, dataSource }: { node: Campai
         {/* ROAS */}
         {dataSource === 'HYBRID' && (
           <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
-            {(node.spend > 0 ? (node.revenue || 0) / node.spend : 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {(() => {
+              const spend = node.spend || 0;
+              const roas = spend > 0 ? (node.revenue || 0) / spend : 0;
+              return (
+                <span className={`px-2 py-1 rounded-full text-xs font-bold ${evaluation.color} ${evaluation.bg}`}>
+                  {roas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              );
+            })()}
           </td>
         )}
       </tr>
       {expanded && node.children?.map((child) => (
-        <HierarchyRow key={child.id} node={child} level={level + 1} journeyLabels={journeyLabels} dataSource={dataSource} />
+        <HierarchyRow key={child.id} node={child} level={level + 1} journeyLabels={journeyLabels} dataSource={dataSource} goals={goals} selectedGoalType={selectedGoalType} />
       ))}
     </>
   );
 };
 
-export const CampaignHierarchyTable: React.FC<Props> = ({ data, loading, journeyLabels, dataSource }) => {
+export const CampaignHierarchyTable: React.FC<Props> = ({ data, loading, journeyLabels, dataSource, goals, selectedGoalType }) => {
   const labels = journeyLabels || ["Impressões", "Cliques", "Leads", "Checkout", "Vendas"];
 
   if (loading) {
@@ -136,7 +192,8 @@ export const CampaignHierarchyTable: React.FC<Props> = ({ data, loading, journey
         <table className="w-full">
           <thead>
             <tr className="bg-secondary/30 border-b border-border text-left">
-              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground w-[40%]">Nome</th>
+              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground w-[35%]">Nome</th>
+              <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-center">Aval.</th>
               <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-center">Status</th>
               <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">Investimento</th>
               {dataSource === 'HYBRID' && (
@@ -156,13 +213,13 @@ export const CampaignHierarchyTable: React.FC<Props> = ({ data, loading, journey
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="py-8 text-center text-muted-foreground">
                   Nenhuma campanha encontrada.
                 </td>
               </tr>
             ) : (
               data.map((campaign) => (
-                <HierarchyRow key={campaign.id} node={campaign} level={0} journeyLabels={labels} dataSource={dataSource} />
+                <HierarchyRow key={campaign.id} node={campaign} level={0} journeyLabels={labels} dataSource={dataSource} goals={goals} selectedGoalType={selectedGoalType} />
               ))
             )}
           </tbody>

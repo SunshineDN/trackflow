@@ -85,30 +85,43 @@ export async function GET(req: NextRequest) {
 
       if (matches.length > 0) {
         matches.forEach((m: any) => usedMetaIds.add(m.id));
-      } else {
-        // Strict Intersection: If no match, exclude this campaign
-        return null;
       }
 
-      // Somar métricas de todas as campanhas encontradas
+      // Somar métricas de todas as campanhas encontradas (se houver)
       const spend = matches.reduce((sum: number, m: any) => sum + (m.spend || 0), 0);
       const metaLeads = matches.reduce((sum: number, m: any) => sum + (m.metaLeads || 0), 0);
-
-      // Calcular Receita Total do Kommo (assumindo stage5 como venda/receita ou somando revenue se tivéssemos)
-      // O serviço kommoService atual não retorna 'revenue' explícito no objeto AdCampaign, 
-      // mas o frontend calcula como stage5 * 100. Vamos tentar manter a lógica do frontend ou melhorar o serviço.
-      // Por enquanto, vamos passar o spend. O ROAS será calculado no frontend ou aqui se tivermos a receita.
-      // Como AdCampaign tem campos opcionais spend e roas (verificaremos types.ts), vamos preenchê-los.
 
       return {
         ...kCamp,
         spend: spend,
         metaLeads: metaLeads,
-        roas: 0 // O cálculo do ROAS depende da receita, que é calculada dinamicamente no frontend. Deixaremos 0 aqui.
+        roas: 0 // O cálculo do ROAS depende da receita, que é calculada dinamicamente no frontend.
       };
-    }).filter(Boolean); // Remove nulls
+    });
 
-    return NextResponse.json({ campaigns: enrichedCampaigns });
+    // 4. Identificar e adicionar "Orfãos" do Meta (Full Outer Join behavior)
+    const orphanMetaCampaigns = metaCampaigns.filter((mCamp: any) => !usedMetaIds.has(mCamp.id));
+
+    const formattedOrphans = orphanMetaCampaigns.map((mCamp: any) => ({
+      id: `meta_${mCamp.id}`, // Prefix to avoid collision if needed, though Meta IDs are usually unique strings
+      name: mCamp.name,
+      status: "active", // Or derive from Meta status if available
+      data: {
+        stage1: 0,
+        stage2: 0,
+        stage3: 0,
+        stage4: 0,
+        stage5: 0,
+      },
+      spend: mCamp.spend || 0,
+      metaLeads: mCamp.metaLeads || 0,
+      revenue: 0,
+      roas: 0
+    }));
+
+    const finalCampaigns = [...enrichedCampaigns, ...formattedOrphans];
+
+    return NextResponse.json({ campaigns: finalCampaigns });
   } catch (error) {
     console.error("Erro ao buscar dados do Kommo:", error);
     return NextResponse.json({ error: "Erro ao buscar dados externos" }, { status: 500 });

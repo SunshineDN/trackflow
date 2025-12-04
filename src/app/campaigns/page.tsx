@@ -51,6 +51,29 @@ const CampaignsContent = () => {
   const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
 
+  const [goals, setGoals] = useState<any[]>([]);
+  const [selectedGoalType, setSelectedGoalType] = useState<'ROAS' | 'CPA'>('ROAS');
+
+  // Fetch Goals
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetch('/api/goals')
+        .then(res => {
+          if (!res.ok) throw new Error("Falha ao buscar metas");
+          return res.json();
+        })
+        .then(data => {
+          if (Array.isArray(data)) {
+            setGoals(data);
+          } else {
+            console.error("Metas retornaram formato inválido:", data);
+            setGoals([]);
+          }
+        })
+        .catch(err => console.error("Erro ao buscar metas:", err));
+    }
+  }, [status]);
+
   // Fetch Accounts
   useEffect(() => {
     if (status === "authenticated") {
@@ -250,47 +273,65 @@ const CampaignsContent = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 bg-background">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+
+          // ... existing code ...
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-foreground tracking-tight">Campanhas</h1>
               <p className="text-sm text-muted-foreground">Gerenciamento detalhado de campanhas e anúncios.</p>
             </div>
 
-            {/* Data Source Selector */}
-            {/* Data Source Selector */}
-            {(() => {
-              const options = [];
+            <div className="flex items-center gap-4">
+              {/* Goal Selector */}
+              <div className="w-32">
+                <Select
+                  options={[
+                    { value: 'ROAS', label: 'ROAS' },
+                    { value: 'CPA', label: 'CPA (Lead)' }
+                  ]}
+                  value={selectedGoalType}
+                  onChange={(val) => setSelectedGoalType(val as any)}
+                  placeholder="Meta"
+                />
+              </div>
 
-              // 1. Meta (Always first if available)
-              if (selectedAccount?.metaAdAccounts?.length > 0) {
-                options.push({ value: 'META', label: 'Meta', icon: <LayoutDashboard size={16} /> });
-              }
+              {/* Data Source Selector */}
+              {(() => {
+                const options = [];
 
-              // 2. Integrations (Kommo)
-              if (integrationConfig?.isActive) {
-                options.push({ value: 'KOMMO', label: 'Kommo', icon: <Filter size={16} /> });
-              }
+                // 1. Meta (Always first if available)
+                if (selectedAccount?.metaAdAccounts?.length > 0) {
+                  options.push({ value: 'META', label: 'Meta', icon: <LayoutDashboard size={16} /> });
+                }
 
-              // 3. Hybrid (If both available)
-              if (selectedAccount?.metaAdAccounts?.length > 0 && integrationConfig?.isActive) {
-                options.push({ value: 'HYBRID', label: 'Kommo + Meta', icon: <TrendingUp size={16} /> });
-              }
+                // 2. Integrations (Kommo)
+                if (integrationConfig?.isActive) {
+                  options.push({ value: 'KOMMO', label: 'Kommo', icon: <Filter size={16} /> });
+                }
 
-              if (options.length === 0) return null;
+                // 3. Hybrid (If both available)
+                if (selectedAccount?.metaAdAccounts?.length > 0 && integrationConfig?.isActive) {
+                  options.push({ value: 'HYBRID', label: 'Kommo + Meta', icon: <TrendingUp size={16} /> });
+                }
 
-              return (
-                <div className="w-48">
-                  <Select
-                    options={options}
-                    value={dataSource}
-                    onChange={(val) => {
-                      setDataSource(val as any);
-                    }}
-                    placeholder="Fonte de Dados"
-                  />
-                </div>
-              );
-            })()}
+                if (options.length === 0) return null;
+
+                return (
+                  <div className="w-48">
+                    <Select
+                      options={options}
+                      value={dataSource}
+                      onChange={(val) => {
+                        setDataSource(val as any);
+                      }}
+                      placeholder="Fonte de Dados"
+                    />
+                  </div>
+                );
+              })()}
+            </div>
           </div>
 
           <CampaignHierarchyTable
@@ -298,6 +339,8 @@ const CampaignsContent = () => {
             loading={isLoading}
             journeyLabels={dataSource === 'META' ? undefined : integrationConfig?.journeyMap}
             dataSource={dataSource}
+            goals={goals}
+            selectedGoalType={selectedGoalType}
           />
         </div>
       </main>

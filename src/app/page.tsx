@@ -97,6 +97,29 @@ const HomeContent = () => {
 
     const [integrationConfig, setIntegrationConfig] = useState<{ isActive: boolean, journeyMap: string[] } | null>(null);
 
+    const [goals, setGoals] = useState<any[]>([]);
+    const [selectedGoalType, setSelectedGoalType] = useState<'ROAS' | 'CPA'>('ROAS');
+
+    // Fetch Goals
+    useEffect(() => {
+        if (status === "authenticated") {
+            fetch('/api/goals')
+                .then(res => {
+                    if (!res.ok) throw new Error("Falha ao buscar metas");
+                    return res.json();
+                })
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setGoals(data);
+                    } else {
+                        console.error("Metas retornaram formato inválido:", data);
+                        setGoals([]);
+                    }
+                })
+                .catch(err => console.error("Erro ao buscar metas:", err));
+        }
+    }, [status]);
+
     // Persist Data Source
     const [dataSource, setDataSource] = usePersistentState<'KOMMO' | 'META' | 'HYBRID'>('dashboard_dataSource', 'KOMMO');
 
@@ -562,10 +585,33 @@ const HomeContent = () => {
                         </div>
                     </section>
 
+
+
+                    // ... existing code ...
+
                     {/* Main Table */}
                     <section>
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-bold text-foreground">Rastreamento de Campanhas</h2>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                            <div className="flex items-center gap-4">
+                                <h2 className="text-lg font-bold text-foreground">Rastreamento de Campanhas</h2>
+
+                                {/* Goal Selector for Evaluation */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">Avaliar por:</span>
+                                    <div className="w-32">
+                                        <Select
+                                            options={[
+                                                { value: 'ROAS', label: 'ROAS' },
+                                                { value: 'CPA', label: 'CPA (Lead)' } // Simplified for now, could be dynamic based on journey
+                                            ]}
+                                            value={selectedGoalType}
+                                            onChange={(val) => setSelectedGoalType(val as any)}
+                                            placeholder="Meta"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex gap-2 flex-wrap justify-end">
                                 {/* Legenda dinâmica */}
                                 {(dataSource === 'META' ? ["Impressões", "Cliques", "Leads", "-", "-"] : (integrationConfig?.journeyMap || ["Impressões / Alcance", "Cliques / Interesse", "Leads / Cadastro", "Checkout Iniciado", "Compra Realizada"])).map((label, idx) => (
@@ -591,6 +637,8 @@ const HomeContent = () => {
                             journeyLabels={dataSource === 'META' ? undefined : integrationConfig?.journeyMap}
                             dataSource={dataSource}
                             loading={isLoadingData}
+                            goals={goals}
+                            selectedGoalType={selectedGoalType}
                         />
                     </section >
 
