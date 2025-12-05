@@ -157,6 +157,13 @@ const HierarchyRow = ({ node, level, journeyLabels, dataSource, goals = [], sele
           </td>
         )}
 
+        {/* Ghost Leads */}
+        {(dataSource === 'KOMMO' || dataSource === 'HYBRID') && (
+          <td className="py-3 px-4 text-right font-mono text-sm text-gray-600 font-bold bg-gray-500/10">
+            {(node.ghostLeads || 0).toLocaleString('pt-BR')}
+          </td>
+        )}
+
         {/* Dynamic Stages */}
         {(journeyLabels || ["I", "II", "III", "IV", "V"]).map((label, index) => {
           const stageKey = `stage${index + 1}` as keyof typeof node.data;
@@ -230,6 +237,9 @@ export const CampaignHierarchyTable: React.FC<Props> = ({ data, loading, journey
               <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">Investimento</th>
               {dataSource === 'HYBRID' && (
                 <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right text-blue-500">Meta Leads</th>
+              )}
+              {(dataSource === 'KOMMO' || dataSource === 'HYBRID') && (
+                <th className="py-4 px-4 font-semibold text-sm text-gray-600 text-right bg-gray-500/10">Leads Fantasmas</th>
               )}
               {labels.map((label, index) => (
                 <th key={index} className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right">

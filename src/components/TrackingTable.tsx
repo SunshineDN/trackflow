@@ -171,6 +171,9 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                   <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center text-blue-500">Meta Leads</th>
                 </>
               )}
+              {(dataSource === 'KOMMO' || dataSource === 'HYBRID') && (
+                <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center text-gray-600 font-bold bg-gray-500/10">Leads Fantasmas</th>
+              )}
               {labels.map((label, index) => (
                 <th key={index} scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center">
                   {toRoman(index + 1)}
@@ -240,6 +243,12 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
                         {formatNumber(ad.metaLeads || 0)}
                       </td>
                     </>
+                  )}
+
+                  {(dataSource === 'KOMMO' || dataSource === 'HYBRID') && (
+                    <td className="px-4 py-3 md:px-6 md:py-4 text-center text-gray-600 font-bold bg-gray-500/10">
+                      {formatNumber(ad.ghostLeads || 0)}
+                    </td>
                   )}
 
                   {/* Dynamic Stages */}

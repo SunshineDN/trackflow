@@ -14,6 +14,7 @@ interface KommoResponse {
         content: string;
         leadsCount: number;
         totalRevenue: number;
+        ghost_leads?: number;
         journey?: Record<string, number>;
       }[];
     }[];
@@ -87,7 +88,9 @@ export async function fetchKommoData(
       stage3: 0,
       stage4: 0,
       stage5: 0,
-      revenue: 0
+
+      revenue: 0,
+      ghostLeads: 0
     };
 
     // Iterar sobre grupos e anúncios para somar
@@ -119,6 +122,7 @@ export async function fetchKommoData(
         }
         // Receita separada
         campaignTotals.revenue += ad.totalRevenue || 0;
+        campaignTotals.ghostLeads += ad.ghost_leads || 0;
       });
     });
 
@@ -134,7 +138,9 @@ export async function fetchKommoData(
         stage4: campaignTotals.stage4,
         stage5: campaignTotals.stage5,
       },
-      revenue: campaignTotals.revenue
+      // Fixed syntax error
+      revenue: campaignTotals.revenue,
+      ghostLeads: campaignTotals.ghostLeads
     });
   });
 
@@ -179,7 +185,9 @@ export async function fetchKommoHierarchy(
       data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
       spend: 0,
       roas: 0,
+
       revenue: 0,
+      ghostLeads: 0,
       children: []
     };
 
@@ -197,7 +205,9 @@ export async function fetchKommoHierarchy(
         data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
         spend: 0,
         roas: 0,
+
         revenue: 0,
+        ghostLeads: 0,
         children: []
       };
 
@@ -215,7 +225,9 @@ export async function fetchKommoHierarchy(
           data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
           spend: 0,
           roas: 0,
-          revenue: 0
+
+          revenue: 0,
+          ghostLeads: 0
         };
 
         // Calcular métricas do anúncio
@@ -230,6 +242,7 @@ export async function fetchKommoHierarchy(
         }
         // Receita do anúncio (totalRevenue)
         adNode.revenue = ad.totalRevenue || 0;
+        adNode.ghostLeads = ad.ghost_leads || 0;
 
         // Somar ao AdSet
         adSetNode.data.stage1 += adNode.data.stage1;
@@ -238,6 +251,7 @@ export async function fetchKommoHierarchy(
         adSetNode.data.stage4 += adNode.data.stage4;
         adSetNode.data.stage5 += adNode.data.stage5;
         adSetNode.revenue += adNode.revenue;
+        adSetNode.ghostLeads = (adSetNode.ghostLeads || 0) + (adNode.ghostLeads || 0);
 
         adSetNode.children?.push(adNode);
       });
@@ -249,6 +263,7 @@ export async function fetchKommoHierarchy(
       campaignNode.data.stage4 += adSetNode.data.stage4;
       campaignNode.data.stage5 += adSetNode.data.stage5;
       campaignNode.revenue += adSetNode.revenue;
+      campaignNode.ghostLeads = (campaignNode.ghostLeads || 0) + (adSetNode.ghostLeads || 0);
 
       campaignNode.children?.push(adSetNode);
     });

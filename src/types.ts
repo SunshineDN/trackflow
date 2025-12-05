@@ -19,6 +19,7 @@ export interface AdCampaign {
   roas?: number;
   revenue?: number;
   metaLeads?: number;
+  ghostLeads?: number;
   isOrphan?: boolean;
 }
 
@@ -55,6 +56,7 @@ export interface CampaignHierarchy {
   roas: number;
   revenue: number;
   metaLeads?: number;
+  ghostLeads?: number;
   isOrphan?: boolean;
   children?: CampaignHierarchy[];
 }
