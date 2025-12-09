@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { sortAlphabetically } from '@/utils/campaignSorting';
 import { LayoutDashboard, BarChart3, Target, Users, Settings, Bell, ChevronDown, LogOut, TrendingUp, Calendar, User, Search, RefreshCw, Layers, Menu, X, Moon, Sun, Filter } from "lucide-react";
 import { MetricSummary } from '@/types';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { Sidebar } from "@/components/Sidebar";
 import { Select } from "@/components/ui/Select";
 import { ViewManager } from "@/components/ViewManager";
+
+import { Header } from "@/components/Header";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
@@ -22,55 +25,7 @@ type DateRange = {
     to: Date;
 };
 
-const SyncButton = ({ session, onSyncSuccess, dateRange }: { session: any, onSyncSuccess?: () => void, dateRange: DateRange }) => {
-    const [isSyncing, setIsSyncing] = useState(false);
-    const { showToast } = useToast();
 
-    const handleSync = async () => {
-        if (!session?.user?.metaAdAccount?.adAccountId) {
-            showToast("Nenhuma conta de anúncios vinculada.", "error");
-            return;
-        }
-
-        setIsSyncing(true);
-        try {
-            const since = format(dateRange.from, 'yyyy-MM-dd');
-            const until = format(dateRange.to, 'yyyy-MM-dd');
-
-            const res = await fetch(`/api/meta/${session.user.metaAdAccount.adAccountId}/sync-daily`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ since, until }),
-            });
-
-            if (res.ok) {
-                showToast("Sincronização iniciada com sucesso!", "success");
-                if (onSyncSuccess) onSyncSuccess();
-            } else {
-                const data = await res.json();
-                showToast(`Erro ao sincronizar: ${data.error || "Erro desconhecido"}`, "error");
-            }
-        } catch (error) {
-            console.error("Erro na sincronização:", error);
-            showToast("Erro ao conectar com o servidor.", "error");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    return (
-        <button
-            onClick={handleSync}
-            disabled={isSyncing}
-            className={`p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-full transition-all relative ${isSyncing ? "opacity-50 cursor-not-allowed" : ""}`}
-            title="Forçar Sincronização"
-        >
-            <RefreshCw size={20} className={isSyncing ? "animate-spin" : ""} />
-        </button>
-    );
-};
 
 const dateRangeDeserializer = (stored: string) => {
     const parsed = JSON.parse(stored);
@@ -270,40 +225,47 @@ const HomeContent = () => {
                 }
 
                 const totalSpend = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.spend || 0), 0);
-                const totalImpressions = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage1 || 0), 0);
-                const totalClicks = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage2 || 0), 0);
-                const totalLeads = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage3 || 0), 0);
 
-                const baseMetrics: MetricSummary[] = [
-                    {
-                        label: "Impressões",
-                        value: totalImpressions.toLocaleString('pt-BR'),
-                        percentage: "100%",
-                        trend: "neutral",
-                        icon: "Eye"
-                    },
-                    {
-                        label: "Cliques",
-                        value: totalClicks.toLocaleString('pt-BR'),
-                        percentage: totalImpressions > 0 ? `${((totalClicks / totalImpressions) * 100).toFixed(2)}%` : "0%",
-                        trend: "neutral",
-                        icon: "MousePointer"
-                    },
-                    {
-                        label: "Leads",
-                        value: totalLeads.toLocaleString('pt-BR'),
-                        percentage: totalImpressions > 0 ? `${((totalLeads / totalImpressions) * 100).toFixed(2)}%` : "0%",
-                        trend: "neutral",
-                        icon: "Users"
-                    },
-                    {
-                        label: "Investimento Total",
-                        value: `R$ ${totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                        percentage: "",
-                        trend: "neutral",
-                        icon: "DollarSign"
-                    }
+                // Calculate totals for each stage dynamically
+                const stageTotals = [
+                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage1 || 0), 0),
+                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage2 || 0), 0),
+                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage3 || 0), 0),
+                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage4 || 0), 0),
+                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage5 || 0), 0),
                 ];
+
+                const metricLabels: { [key: string]: string } = {
+                    impressions: "Impressões",
+                    clicks: "Cliques",
+                    leads: "Leads",
+                    reach: "Alcance",
+                    results: "Resultados"
+                };
+
+                const baseMetrics: MetricSummary[] = metaJourneyMap.map((metricKey, index) => {
+                    const value = stageTotals[index];
+                    const firstStageValue = stageTotals[0];
+                    // Calculate percentage relative to the first stage (Impressions/Reach usually)
+                    const percentage = firstStageValue > 0 ? (value / firstStageValue) * 100 : 0;
+
+                    return {
+                        label: metricLabels[metricKey] || metricKey,
+                        value: value.toLocaleString('pt-BR'),
+                        percentage: index === 0 ? "100%" : `${percentage.toFixed(2)}%`,
+                        trend: "neutral",
+                        icon: ["Eye", "MousePointer", "Users", "Target", "Award"][index] || "Activity"
+                    };
+                });
+
+                // Always add Total Spend at the end
+                baseMetrics.push({
+                    label: "Investimento Total",
+                    value: `R$ ${totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                    percentage: "",
+                    trend: "neutral",
+                    icon: "DollarSign"
+                });
 
                 setMetrics(baseMetrics);
             }
@@ -418,9 +380,13 @@ const HomeContent = () => {
         }
     }, [status, session, selectedAccount, dateRange, dataSource]);
 
-    const filteredCampaigns = campaigns.filter(c =>
-        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+
+
+
+
+    const filteredCampaigns = campaigns
+        .filter(c => (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort(sortAlphabetically);
 
     if (status === "loading") {
         return <div className="flex items-center justify-center min-h-screen">Carregando...</div>;
@@ -452,68 +418,20 @@ const HomeContent = () => {
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-screen relative overflow-x-hidden">
                 {/* Header */}
-                <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 shadow-sm z-30 sticky top-0">
-                    <div className="flex items-center gap-4">
-                        <button
-                            className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg"
-                            onClick={() => setIsMobileMenuOpen(true)}
-                        >
-                            <Menu />
-                        </button>
-                        <div
-                            className="relative"
-                            onMouseEnter={() => setIsProfileMenuOpen(true)}
-                            onMouseLeave={() => setIsProfileMenuOpen(false)}
-                        >
-                            <div className="flex items-center gap-3 cursor-pointer py-2">
-                                <div className="text-right hidden md:block">
-                                    <p className="text-sm font-semibold text-foreground">{session.user.name}</p>
-                                    <p className="text-xs text-muted-foreground">{session.user.role === 'ADMIN' ? 'Administrador' : 'Membro'}</p>
-                                </div>
-                                <div className="w-10 h-10 rounded-full bg-secondary border-2 border-border shadow-sm overflow-hidden">
-                                    {session.user.image ? (
-                                        <img src={session.user.image} alt="Profile" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-brand-500/10 text-brand-500 font-bold">
-                                            {session.user.name?.[0]?.toUpperCase() || 'U'}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Hover Dropdown */}
-                            {isProfileMenuOpen && (
-                                <div className="absolute right-0 top-full w-64 bg-popover text-popover-foreground rounded-xl shadow-xl border border-border overflow-hidden transition-all transform origin-top-right z-50">
-                                    <div className="p-4 border-b border-border bg-accent/50">
-                                        <p className="font-semibold">{session.user.name}</p>
-                                        <p className="text-xs text-muted-foreground break-all">{session.user.email}</p>
-                                    </div>
-                                    <div className="p-2">
-                                        <button
-                                            onClick={() => router.push('/profile')}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors"
-                                        >
-                                            <User size={16} />
-                                            Editar Perfil
-                                        </button>
-                                        <button
-                                            onClick={() => signOut({ callbackUrl: '/auth/login' })}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                                        >
-                                            <LogOut size={16} />
-                                            Sair
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </header>
+                <Header
+                    session={session}
+                    dateRange={dateRange}
+                    setDateRange={setDateRange}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    onSyncSuccess={() => {
+                        if (selectedAccount) checkIntegrationAndFetch();
+                    }}
+                    setIsMobileMenuOpen={setIsMobileMenuOpen}
+                />
 
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 bg-background">
-
-                    {/* Hero Section: Data Source & Metrics */}
                     <section className="space-y-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
@@ -633,7 +551,8 @@ const HomeContent = () => {
                                         { key: 'revenue', label: 'Receita' },
                                         { key: 'roas', label: 'ROAS' },
                                         { key: 'results', label: 'Resultados' },
-                                        { key: 'ghostLeads', label: 'Leads Fantasmas' },
+                                        { key: 'results', label: 'Resultados' },
+                                        ...(dataSource !== 'META' ? [{ key: 'ghostLeads', label: 'Leads Fantasmas' }] : []),
                                         ...((integrationConfig?.journeyMap || ['Etapa 1', 'Etapa 2', 'Etapa 3', 'Etapa 4', 'Etapa 5']).map((label, i) => ({
                                             key: `stage${i + 1}`,
                                             label: label
@@ -718,8 +637,8 @@ const HomeContent = () => {
                     </section>
 
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 };
 

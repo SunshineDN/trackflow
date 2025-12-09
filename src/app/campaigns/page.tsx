@@ -1,18 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from 'react';
-
+import { sortCampaignsRecursively } from '@/utils/campaignSorting';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 
 import { format, subDays } from 'date-fns';
-import { LayoutDashboard, Filter, TrendingUp, Target, Menu, User, LogOut, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, Filter, TrendingUp, Target, Menu, User, LogOut, User as UserIcon, Search, Bell } from "lucide-react";
 import { CampaignHierarchy } from '@/types';
 import { Sidebar } from "@/components/Sidebar";
 import { Select } from "@/components/ui/Select";
 import CampaignHierarchyTable from "@/components/CampaignHierarchyTable";
 import { ViewManager } from "@/components/ViewManager";
+import { Header } from "@/components/Header";
 import { usePersistentState } from '@/hooks/usePersistentState';
 
 type DateRange = {
@@ -191,8 +192,8 @@ const CampaignsContent = () => {
     }
   };
 
-  const filteredCampaigns = campaigns.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCampaigns = sortCampaignsRecursively(
+    campaigns.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (status === "loading") return <div className="flex items-center justify-center min-h-screen">Carregando...</div>;
@@ -223,67 +224,17 @@ const CampaignsContent = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen relative overflow-x-hidden">
         {/* Header */}
-        <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 shadow-sm z-30 sticky top-0">
-          <div className="flex items-center gap-4">
-            <button
-              className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg"
-              onClick={() => setIsMobileMenuOpen(true)}
-            >
-              <Menu />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Profile Menu */}
-            <div
-              className="relative"
-              onMouseEnter={() => setIsProfileMenuOpen(true)}
-              onMouseLeave={() => setIsProfileMenuOpen(false)}
-            >
-              <div className="flex items-center gap-3 cursor-pointer py-2">
-                <div className="text-right hidden md:block">
-                  <p className="text-sm font-semibold text-foreground">{session.user.name}</p>
-                  <p className="text-xs text-muted-foreground">{session.user.role === 'ADMIN' ? 'Administrador' : 'Membro'}</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-secondary border-2 border-border shadow-sm overflow-hidden">
-                  {session.user.image ? (
-                    <img src={session.user.image} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-brand-500/10 text-brand-500 font-bold">
-                      {session.user.name?.[0]?.toUpperCase() || 'U'}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Hover Dropdown */}
-              {isProfileMenuOpen && (
-                <div className="absolute right-0 top-full w-64 bg-popover text-popover-foreground rounded-xl shadow-xl border border-border overflow-hidden transition-all transform origin-top-right z-50">
-                  <div className="p-4 border-b border-border bg-accent/50">
-                    <p className="font-semibold">{session.user.name}</p>
-                    <p className="text-xs text-muted-foreground break-all">{session.user.email}</p>
-                  </div>
-                  <div className="p-2">
-                    <button
-                      onClick={() => router.push('/profile')}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors"
-                    >
-                      <UserIcon size={16} />
-                      Editar Perfil
-                    </button>
-                    <button
-                      onClick={() => signOut({ callbackUrl: '/auth/login' })}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                    >
-                      <LogOut size={16} />
-                      Sair
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
+        <Header
+          session={session}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onSyncSuccess={() => {
+            if (selectedAccount) checkIntegrationAndFetch();
+          }}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+        />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 bg-background">
@@ -322,7 +273,8 @@ const CampaignsContent = () => {
                   { key: 'revenue', label: 'Receita' },
                   { key: 'roas', label: 'ROAS' },
                   { key: 'results', label: 'Resultados' },
-                  { key: 'ghostLeads', label: 'Leads Fantasmas' },
+                  { key: 'results', label: 'Resultados' },
+                  ...(dataSource !== 'META' ? [{ key: 'ghostLeads', label: 'Leads Fantasmas' }] : []),
                   ...((integrationConfig?.journeyMap || ['Etapa 1', 'Etapa 2', 'Etapa 3', 'Etapa 4', 'Etapa 5']).map((label, i) => ({
                     key: `stage${i + 1}`,
                     label: label
@@ -367,7 +319,7 @@ const CampaignsContent = () => {
                 );
               })()}
             </div>
-          </div>
+          </div >
 
           {
             dataSource === 'HYBRID' ? (
@@ -427,9 +379,9 @@ const CampaignsContent = () => {
               />
             )
           }
-        </div>
-      </main>
-    </div>
+        </div >
+      </main >
+    </div >
   );
 };
 
