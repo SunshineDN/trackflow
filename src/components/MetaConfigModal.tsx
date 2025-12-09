@@ -13,8 +13,9 @@ const AVAILABLE_METRICS = [
   { value: 'impressions', label: 'Impressões' },
   { value: 'clicks', label: 'Cliques' },
   { value: 'leads', label: 'Leads (Meta)' },
+  { value: 'reach', label: 'Alcance' },
+  { value: 'results', label: 'Resultados' },
   // Monetary metrics removed as per request.
-  // Future: Add 'reach', 'results', 'purchases' when available in DB.
 ];
 
 export const MetaConfigModal: React.FC<MetaConfigModalProps> = ({ isOpen, onClose, onSuccess }) => {

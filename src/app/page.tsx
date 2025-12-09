@@ -250,30 +250,18 @@ const HomeContent = () => {
             const res = await fetch(`/api/meta/${adAccount.adAccountId}/report/campaigns?since=${since}&until=${until}`);
             if (res.ok) {
                 const data = await res.json();
-                const formattedCampaigns = data.campaigns.map((c: any) => ({
-                    id: c.campaignId,
-                    name: c.campaignName,
-                    status: "active",
-                    data: {
-                        stage1: c.totalImpressions,
-                        stage2: c.totalClicks,
-                        stage3: c.totalLeads,
-                        stage4: 0,
-                        stage5: 0,
-                    },
-                    spend: c.totalSpend,
-                    roas: 0
-                }));
+                // API now returns formatted campaigns from fetchMetaCampaigns service
+                const formattedCampaigns = data.campaigns;
 
                 setCampaigns(formattedCampaigns);
                 if (formattedCampaigns.length > 0 && !selectedCampaignId) {
                     setSelectedCampaignId(formattedCampaigns[0].id);
                 }
 
-                const totalSpend = formattedCampaigns.reduce((acc: number, c: any) => acc + c.spend, 0);
-                const totalImpressions = formattedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage1, 0);
-                const totalClicks = formattedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage2, 0);
-                const totalLeads = formattedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage3, 0);
+                const totalSpend = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.spend || 0), 0);
+                const totalImpressions = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage1 || 0), 0);
+                const totalClicks = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage2 || 0), 0);
+                const totalLeads = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage3 || 0), 0);
 
                 const baseMetrics: MetricSummary[] = [
                     {
@@ -407,7 +395,7 @@ const HomeContent = () => {
     }, [status, session, selectedAccount, dateRange, dataSource]);
 
     const filteredCampaigns = campaigns.filter(c =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase())
+        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (status === "loading") {

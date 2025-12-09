@@ -15,6 +15,8 @@ export type RawInsightRow = {
     impressions: string;
     clicks: string;
     spend: string;
+    reach?: string;
+    inline_link_clicks?: string;
     actions?: MetaAction[];
 };
 

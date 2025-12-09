@@ -91,6 +91,8 @@ model MetaAdInsightDaily {
   clicks          Int
   spend           Float
   leads           Int
+  reach           Int            @default(0)
+  results         Int            @default(0)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

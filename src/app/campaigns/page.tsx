@@ -136,6 +136,26 @@ const CampaignsContent = () => {
       setIntegrationConfig(null);
     }
 
+    // 1.5 Fetch Meta Config if needed (for labels)
+    if (dataSource === 'META') {
+      try {
+        const res = await fetch(`/api/integrations/meta/config`);
+        if (res.ok) {
+          const config = await res.json();
+          if (config.journeyMap) {
+            // If Kommo is not active, use Meta config.
+            // If Kommo IS active, we might want to prefer Kommo config for Hybrid,
+            // but for pure META source, we should definitely use Meta config.
+            // However, the state is single `integrationConfig`.
+            // Let's update it if we are in META mode.
+            setIntegrationConfig({ isActive: true, journeyMap: config.journeyMap });
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao buscar config Meta:", e);
+      }
+    }
+
     // 2. Fetch Data
     try {
       const since = dateRange.from.toISOString();
@@ -387,7 +407,7 @@ const CampaignsContent = () => {
               <CampaignHierarchyTable
                 data={filteredCampaigns}
                 loading={isLoading}
-                journeyLabels={dataSource === 'META' ? undefined : integrationConfig?.journeyMap}
+                journeyLabels={integrationConfig?.journeyMap}
                 dataSource={dataSource}
                 goals={goals}
                 selectedGoalType={selectedGoalType}

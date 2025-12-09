@@ -247,7 +247,7 @@ export const CampaignHierarchyTable: React.FC<Props> = ({ data, loading, journey
               )}
               {dataSource === 'META' && (
                 <th className="py-4 px-4 font-semibold text-sm text-muted-foreground text-right text-blue-500">
-                  {labels.length > 0 ? labels[labels.length - 1] : 'Resultado'}
+                  {labels.length > 0 ? `Meta ${labels[labels.length - 1]}` : 'Meta Resultado'}
                 </th>
               )}
               {(dataSource === 'KOMMO' || dataSource === 'HYBRID') && (

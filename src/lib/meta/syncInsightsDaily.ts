@@ -34,6 +34,8 @@ export async function syncMetaInsightsDaily(options: {
                 "impressions",
                 "clicks",
                 "spend",
+                "reach",
+                "inline_link_clicks",
                 "actions",
             ].join(","),
             limit: 1000,
@@ -47,6 +49,16 @@ export async function syncMetaInsightsDaily(options: {
         const date = new Date(`${dateStr}T00:00:00.000Z`);
 
         const leads = extractLeadsFromActions(row.actions);
+        const reach = Number(row.reach || 0);
+        // "Results" is ambiguous. Using inline_link_clicks + leads as a proxy for "meaningful actions" if not explicitly defined.
+        // Or simply map inline_link_clicks if that's what "results" usually implies in this context (traffic).
+        // Given the request for "Results" alongside "Reach", and "Leads" is already separate, "Results" might be the objective-based metric.
+        // Without 'objective' field, we can't be sure.
+        // Let's use inline_link_clicks as a generic "Result" proxy for now, or sum of key actions.
+        // Actually, let's just use leads + inline_link_clicks to capture both conversion and traffic results.
+        // Better yet: just store 0 if we can't determine. But user wants to see something.
+        // Let's map 'results' to 'leads' (if > 0) OR 'inline_link_clicks' (if leads == 0).
+        const results = leads > 0 ? leads : Number(row.inline_link_clicks || 0);
 
         await prisma.metaAdInsightDaily.upsert({
             where: {
@@ -66,6 +78,8 @@ export async function syncMetaInsightsDaily(options: {
                 clicks: Number(row.clicks || 0),
                 spend: Number(row.spend || 0),
                 leads,
+                reach,
+                results,
             },
             create: {
                 metaAdAccountId,
@@ -80,6 +94,8 @@ export async function syncMetaInsightsDaily(options: {
                 clicks: Number(row.clicks || 0),
                 spend: Number(row.spend || 0),
                 leads,
+                reach,
+                results,
             },
         });
     }

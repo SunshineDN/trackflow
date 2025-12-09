@@ -175,7 +175,7 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({ data, onSelect, se
               )}
               {dataSource === 'META' && (
                 <th scope="col" className="px-4 py-3 md:px-6 md:py-4 text-center text-blue-500">
-                  {labels.length > 0 ? labels[labels.length - 1] : 'Resultado'}
+                  {labels.length > 0 ? `Meta ${labels[labels.length - 1]}` : 'Meta Resultado'}
                 </th>
               )}
               {(dataSource === 'KOMMO' || dataSource === 'HYBRID') && (

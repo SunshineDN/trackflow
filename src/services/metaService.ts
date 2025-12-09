@@ -34,6 +34,8 @@ export async function fetchMetaCampaigns(adAccountId: string, since: string, unt
     totalImpressions: number;
     totalClicks: number;
     totalLeads: number;
+    totalReach: number;
+    totalResults: number;
   };
 
   const map = new Map<string, CampaignSummary>();
@@ -49,12 +51,16 @@ export async function fetchMetaCampaigns(adAccountId: string, since: string, unt
         totalImpressions: row.impressions,
         totalClicks: row.clicks,
         totalLeads: row.leads,
+        totalReach: row.reach || 0,
+        totalResults: row.results || 0,
       });
     } else {
       existing.totalSpend += row.spend;
       existing.totalImpressions += row.impressions;
       existing.totalClicks += row.clicks;
       existing.totalLeads += row.leads;
+      existing.totalReach += (row.reach || 0);
+      existing.totalResults += (row.results || 0);
     }
   }
 
@@ -63,6 +69,8 @@ export async function fetchMetaCampaigns(adAccountId: string, since: string, unt
       case 'impressions': return data.totalImpressions;
       case 'clicks': return data.totalClicks;
       case 'leads': return data.totalLeads;
+      case 'reach': return data.totalReach;
+      case 'results': return data.totalResults;
       case 'spend': return data.totalSpend;
       case 'ctr': return data.totalImpressions > 0 ? (data.totalClicks / data.totalImpressions) * 100 : 0;
       case 'cpc': return data.totalClicks > 0 ? data.totalSpend / data.totalClicks : 0;
@@ -133,6 +141,8 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
     impressions: number;
     clicks: number;
     leads: number;
+    reach: number;
+    results: number;
   };
 
   const aggregate = (target: AggregatedData, source: AggregatedData) => {
@@ -140,6 +150,8 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
     target.impressions += source.impressions;
     target.clicks += source.clicks;
     target.leads += source.leads;
+    target.reach += source.reach;
+    target.results += source.results;
   };
 
   const calculateMetric = (metric: string, data: AggregatedData) => {
@@ -147,6 +159,8 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
       case 'impressions': return data.impressions;
       case 'clicks': return data.clicks;
       case 'leads': return data.leads;
+      case 'reach': return data.reach;
+      case 'results': return data.results;
       case 'spend': return data.spend;
       case 'ctr': return data.impressions > 0 ? (data.clicks / data.impressions) * 100 : 0;
       case 'cpc': return data.clicks > 0 ? data.spend / data.clicks : 0;
@@ -161,7 +175,7 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
 
   const getRawData = (id: string) => {
     if (!rawDataMap.has(id)) {
-      rawDataMap.set(id, { spend: 0, impressions: 0, clicks: 0, leads: 0 });
+      rawDataMap.set(id, { spend: 0, impressions: 0, clicks: 0, leads: 0, reach: 0, results: 0 });
     }
     return rawDataMap.get(id)!;
   };
@@ -187,7 +201,7 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
     }
     const campaign = hierarchyMap.get(row.campaignId)!;
     const campRaw = getRawData(row.campaignId);
-    aggregate(campRaw, { spend: row.spend, impressions: row.impressions, clicks: row.clicks, leads: row.leads });
+    aggregate(campRaw, { spend: row.spend, impressions: row.impressions, clicks: row.clicks, leads: row.leads, reach: row.reach || 0, results: row.results || 0 });
 
     // AdSet
     let adSet = campaign.children?.find(c => c.id === row.adsetId);
@@ -207,7 +221,7 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
       campaign.children?.push(adSet);
     }
     const adSetRaw = getRawData(row.adsetId);
-    aggregate(adSetRaw, { spend: row.spend, impressions: row.impressions, clicks: row.clicks, leads: row.leads });
+    aggregate(adSetRaw, { spend: row.spend, impressions: row.impressions, clicks: row.clicks, leads: row.leads, reach: row.reach || 0, results: row.results || 0 });
 
     // Ad
     let ad = adSet.children?.find(c => c.id === row.adId);
@@ -226,7 +240,7 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
       adSet.children?.push(ad);
     }
     const adRaw = getRawData(row.adId);
-    aggregate(adRaw, { spend: row.spend, impressions: row.impressions, clicks: row.clicks, leads: row.leads });
+    aggregate(adRaw, { spend: row.spend, impressions: row.impressions, clicks: row.clicks, leads: row.leads, reach: row.reach || 0, results: row.results || 0 });
   }
 
   // 2. Map Raw Data to Configured Stages

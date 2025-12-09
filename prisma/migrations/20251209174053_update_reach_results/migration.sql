@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "MetaAdInsightDaily" ADD COLUMN     "reach" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "results" INTEGER NOT NULL DEFAULT 0;
