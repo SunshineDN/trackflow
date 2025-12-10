@@ -273,7 +273,6 @@ const CampaignsContent = () => {
                   { key: 'revenue', label: 'Receita' },
                   { key: 'roas', label: 'ROAS' },
                   { key: 'results', label: 'Resultados' },
-                  { key: 'results', label: 'Resultados' },
                   ...(dataSource !== 'META' ? [{ key: 'ghostLeads', label: 'Leads Fantasmas' }] : []),
                   ...((integrationConfig?.journeyMap || ['Etapa 1', 'Etapa 2', 'Etapa 3', 'Etapa 4', 'Etapa 5']).map((label, i) => ({
                     key: `stage${i + 1}`,

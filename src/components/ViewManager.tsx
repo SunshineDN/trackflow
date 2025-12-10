@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Save, Trash2, Layout, Settings, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -23,6 +23,7 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
   const [views, setViews] = useState<View[]>([]);
   const [viewName, setViewName] = useState('');
   const [loading, setLoading] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // New State
   const [activeViewId, setActiveViewId] = useState<string>('custom');
@@ -32,6 +33,23 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
   useEffect(() => {
     fetchViews();
   }, [dataSource]);
+
+  // Click Outside Logic
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   // Check for changes in current view
   useEffect(() => {
@@ -182,14 +200,14 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
 
   return (
 
-    <div className="relative">
+    <div className="relative" ref={modalRef}>
       <Button variant="outline" size="sm" onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2">
         <Layout className="w-4 h-4" />
         {activeViewName}
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 z-50 w-[400px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 flex flex-col gap-4 max-h-[80vh] animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 top-12 z-50 w-[400px] bg-card border border-border rounded-lg shadow-xl p-4 flex flex-col gap-4 max-h-[80vh] animate-in fade-in zoom-in-95 duration-200 text-card-foreground">
 
           {/* 1. Active View Selector */}
           <div>
@@ -234,13 +252,13 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
 
           {/* 2. Save Current View (Only if Custom) */}
           {activeViewId === 'custom' && (
-            <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50">
+            <div className="bg-secondary/30 p-3 rounded-lg border border-border">
               <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Salvar nova visualização</label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   placeholder="Nome da visualização..."
-                  className="flex-1 text-sm border rounded px-3 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  className="flex-1 text-sm border rounded px-3 py-2 bg-background border-input focus:outline-none focus:ring-2 focus:ring-brand-500/20 text-foreground"
                   value={viewName}
                   onChange={(e) => setViewName(e.target.value)}
                 />
@@ -252,7 +270,7 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
             </div>
           )}
 
-          <hr className="border-gray-100 dark:border-gray-700" />
+          <hr className="border-border" />
 
           {/* 3. Configure Columns Toggle */}
           <div className="flex-1 overflow-hidden flex flex-col">
@@ -266,7 +284,7 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
                 <Settings size={14} />
                 {activeViewId === 'custom' ? 'Configurar Colunas' : 'Editar Colunas'}
               </span>
-              <span className="text-xs text-muted-foreground bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
+              <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full group-hover:bg-secondary/80 transition-colors">
                 {currentColumns.length} ativas
               </span>
             </Button>
@@ -277,8 +295,8 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
                   {availableColumns.map(col => {
                     const isChecked = currentColumns.includes(col.key);
                     return (
-                      <label key={col.key} className={`flex items-center gap-2 p-2 rounded text-sm cursor-pointer border transition-all ${isChecked ? 'bg-brand-50 border-brand-200 dark:bg-brand-900/20 dark:border-brand-800 shadow-sm' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isChecked ? 'bg-brand-500 border-brand-500' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'}`}>
+                      <label key={col.key} className={`flex items-center gap-2 p-2 rounded text-sm cursor-pointer border transition-all ${isChecked ? 'bg-brand-500/10 border-brand-500/20 shadow-sm' : 'bg-background border-border hover:border-input'}`}>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isChecked ? 'bg-brand-500 border-brand-500' : 'bg-background border-input'}`}>
                           {isChecked && <Plus size={10} className="text-white rotate-45" />}
                         </div>
                         <input
@@ -287,7 +305,7 @@ export function ViewManager({ dataSource, availableColumns, currentColumns, onCo
                           onChange={() => toggleColumn(col.key)}
                           className="hidden"
                         />
-                        <span className="truncate text-xs font-medium">{col.label}</span>
+                        <span className="truncate text-xs font-medium text-foreground">{col.label}</span>
                       </label>
                     );
                   })}

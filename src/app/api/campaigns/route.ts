@@ -146,6 +146,21 @@ export async function GET(req: NextRequest) {
                             kAd.metaLeads = (kAd.metaLeads || 0) + adMatches.reduce((s, m) => s + (m.metaLeads || 0), 0);
                           }
                         });
+
+                        // Append Orphan Meta Ads
+                        const orphanMetaAds = allMetaAds.filter(m => !usedMetaAdIds.has(m.id)).map(m => ({
+                          ...m,
+                          isOrphan: true,
+                          data: {
+                            ...m.data,
+                            stage1: 0,
+                            stage2: 0,
+                            stage3: 0,
+                            stage4: 0,
+                            stage5: 0
+                          }
+                        }));
+                        kAdSet.children = [...kAdSet.children, ...orphanMetaAds];
                       }
                     }
                   });

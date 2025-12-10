@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, Target, DollarSign, TrendingUp, Layers } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { Sidebar } from "@/components/Sidebar";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 
 interface Goal {
   type: 'REVENUE' | 'ROAS' | 'CPA';
@@ -78,25 +79,15 @@ export default function GoalsPage() {
     return goal ? goal.value : (type === 'CPA' ? defaultGoals.CPA : defaultGoals[type]);
   };
 
-  const handleGoalChange = (type: 'REVENUE' | 'ROAS' | 'CPA', value: string, stageIndex?: number) => {
-    // Allow empty string for better typing experience
-    if (value === '') {
-      // We can't store empty string in number type, so we might need a local state or just handle it as 0 or keep previous.
-      // Better approach: Update state with 0 or handle it in the input.
-      // For now, let's parse.
-    }
-
-    const numValue = parseFloat(value);
-    // if (isNaN(numValue)) return; // Allow 0 or empty?
-
+  const handleGoalChange = (type: 'REVENUE' | 'ROAS' | 'CPA', value: number, stageIndex?: number) => {
     setGoals(prev => {
       const existingIndex = prev.findIndex(g => g.type === type && g.stageIndex === stageIndex);
       if (existingIndex >= 0) {
         const newGoals = [...prev];
-        newGoals[existingIndex] = { ...newGoals[existingIndex], value: isNaN(numValue) ? 0 : numValue };
+        newGoals[existingIndex] = { ...newGoals[existingIndex], value };
         return newGoals;
       } else {
-        return [...prev, { type, value: isNaN(numValue) ? 0 : numValue, stageIndex: stageIndex ?? null }];
+        return [...prev, { type, value, stageIndex: stageIndex ?? null }];
       }
     });
   };
@@ -167,7 +158,7 @@ export default function GoalsPage() {
                       type="number"
                       step="0.1"
                       value={getGoalValue('ROAS')}
-                      onChange={(e) => handleGoalChange('ROAS', e.target.value)}
+                      onChange={(e) => handleGoalChange('ROAS', parseFloat(e.target.value))}
                       className="w-full pl-4 pr-12 py-2.5 bg-secondary/30 border border-border rounded-xl focus:ring-2 focus:ring-brand-500/50 outline-none transition-all"
                     />
                     <span className="absolute right-4 top-2.5 text-muted-foreground font-bold">x</span>
@@ -180,13 +171,10 @@ export default function GoalsPage() {
                     <DollarSign size={16} /> Meta de Receita
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-2.5 text-muted-foreground font-bold">R$</span>
-                    <input
-                      type="number"
-                      step="100"
+                    <CurrencyInput
                       value={getGoalValue('REVENUE')}
-                      onChange={(e) => handleGoalChange('REVENUE', e.target.value)}
-                      className="w-full pl-12 pr-4 py-2.5 bg-secondary/30 border border-border rounded-xl focus:ring-2 focus:ring-brand-500/50 outline-none transition-all"
+                      onChange={(val) => handleGoalChange('REVENUE', val)}
+                      className="w-full pl-4 pr-4 py-2.5 bg-secondary/30 border border-border rounded-xl focus:ring-2 focus:ring-brand-500/50 outline-none transition-all"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">Valor planejado para receita total.</p>
@@ -210,13 +198,10 @@ export default function GoalsPage() {
                         Custo - {stage}
                       </label>
                       <div className="relative">
-                        <span className="absolute left-4 top-2.5 text-muted-foreground font-bold">R$</span>
-                        <input
-                          type="number"
-                          step="1"
+                        <CurrencyInput
                           value={getGoalValue('CPA', index)}
-                          onChange={(e) => handleGoalChange('CPA', e.target.value, index)}
-                          className="w-full pl-12 pr-4 py-2.5 bg-secondary/30 border border-border rounded-xl focus:ring-2 focus:ring-brand-500/50 outline-none transition-all"
+                          onChange={(val) => handleGoalChange('CPA', val, index)}
+                          className="w-full pl-4 pr-4 py-2.5 bg-secondary/30 border border-border rounded-xl focus:ring-2 focus:ring-brand-500/50 outline-none transition-all"
                         />
                       </div>
                     </div>

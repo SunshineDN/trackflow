@@ -3,13 +3,15 @@
 import React, { useState } from 'react';
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Target, Share2, UserPlus, ChevronRight, Menu } from "lucide-react";
+import { Target, Share2, UserPlus, ChevronRight, Menu, Moon, Sun } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function SettingsHubPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   if (status === "loading") {
     return <div className="flex items-center justify-center min-h-screen">Carregando...</div>;
@@ -65,11 +67,39 @@ export default function SettingsHubPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 bg-background">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto space-y-8">
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-foreground tracking-tight">Central de Configurações</h2>
               <p className="text-muted-foreground">Gerencie todos os aspectos da sua conta e integrações.</p>
             </div>
+
+            {/* Appearance Section */}
+            <section className="bg-card border border-border rounded-2xl p-6 mb-8">
+              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                {theme === 'dark' ? <Moon size={20} className="text-purple-400" /> : <Sun size={20} className="text-yellow-500" />}
+                Aparência
+              </h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-foreground">Tema do Sistema</p>
+                  <p className="text-sm text-muted-foreground">Alternar entre modo claro e escuro.</p>
+                </div>
+                <div className="flex items-center gap-3 bg-secondary/50 p-1 rounded-lg">
+                  <button
+                    onClick={() => theme === 'dark' && toggleTheme()}
+                    className={`p-2 rounded-md transition-all ${theme === 'light' ? 'bg-white shadow-sm text-yellow-500' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <Sun size={20} />
+                  </button>
+                  <button
+                    onClick={() => theme === 'light' && toggleTheme()}
+                    className={`p-2 rounded-md transition-all ${theme === 'dark' ? 'bg-gray-700 shadow-sm text-purple-400' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <Moon size={20} />
+                  </button>
+                </div>
+              </div>
+            </section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {settingsOptions.map((option, index) => (
