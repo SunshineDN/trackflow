@@ -30,8 +30,13 @@ model Client {
   termsAccepted  Boolean             @default(false)
   lgpdConsent    Boolean             @default(false)
 
+  // Meta Integration
+  metaUserAccessToken String?
+  metaUserTokenExpiry DateTime?
+
   // Relations
-  metaAdAccounts MetaAdAccount[]
+  metaAdAccounts  MetaAdAccount[]
+  googleAdAccounts GoogleAdAccount[]
   integrations   IntegrationConfig[]
   
   // Sharing
@@ -100,6 +105,50 @@ model MetaAdInsightDaily {
   updatedAt       DateTime       @updatedAt
 
   @@unique([metaAdAccountId, adId, date])
+  @@index([campaignId])
+  @@index([adId])
+  @@index([date])
+}
+
+model GoogleAdAccount {
+  id             String                @id @default(cuid())
+  clientId       String
+  client         Client                @relation(fields: [clientId], references: [id])
+  customerId     String                // Google Ads Customer ID (123-456-7890)
+  managerId      String?               // MCC ID if applicable
+  name           String?
+  refreshToken   String                // Critical for offline access
+  accessToken    String?               // Short-lived
+  tokenExpiresAt DateTime?
+  status         String                @default("ACTIVE") // ACTIVE, DISCONNECTED
+  insightsDaily  GoogleAdInsightDaily[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([clientId])
+  @@index([customerId])
+}
+
+model GoogleAdInsightDaily {
+  id                String          @id @default(cuid())
+  googleAdAccountId String
+  googleAdAccount   GoogleAdAccount @relation(fields: [googleAdAccountId], references: [id])
+  date              DateTime
+  campaignId        String
+  campaignName      String
+  adGroupId         String
+  adGroupName       String
+  adId              String
+  adName            String
+  impressions       Int
+  clicks            Int
+  cost              Float           // "spend" in Google Ads terms (micros usually, but storing as float here for consistency)
+  conversions       Float           // "leads" or "results"
+  conversionValue   Float?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([googleAdAccountId, adId, date])
   @@index([campaignId])
   @@index([adId])
   @@index([date])

@@ -27,7 +27,7 @@ interface TrackingTableProps {
   onSelect: (id: string) => void;
   selectedId: string | null;
   journeyLabels?: string[];
-  dataSource?: 'KOMMO' | 'META' | 'HYBRID';
+  dataSource?: string;
   loading?: boolean;
   goals?: any[];
   selectedGoalType?: 'ROAS' | 'CPA' | 'REVENUE';
@@ -160,12 +160,16 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({
         case 'roas': content = 'ROAS'; break;
         case 'ghostLeads': content = 'Fantasmas'; break;
         case 'results':
-          if (dataSource === 'HYBRID' && metaResultLabel) {
-            content = `Meta ${metaResultLabel}`;
+          if (dataSource?.includes('HYBRID') && metaResultLabel) {
+            content = `Plataforma ${metaResultLabel}`;
           } else {
-            content = dataSource === 'META'
-              ? (journeyLabels && journeyLabels.length > 0 ? `Meta ${journeyLabels[journeyLabels.length - 1]}` : 'Meta Resultado')
-              : (journeyLabels && journeyLabels.length > 0 ? journeyLabels[journeyLabels.length - 1] : 'Resultado');
+            if (dataSource === 'META') {
+              content = journeyLabels && journeyLabels.length > 0 ? `Meta ${journeyLabels[journeyLabels.length - 1]}` : 'Meta Resultado';
+            } else if (dataSource === 'GOOGLE') {
+              content = journeyLabels && journeyLabels.length > 0 ? `Google ${journeyLabels[journeyLabels.length - 1]}` : 'Google Resultado';
+            } else {
+              content = journeyLabels && journeyLabels.length > 0 ? journeyLabels[journeyLabels.length - 1] : 'Resultado';
+            }
           }
           break;
         default: content = null;
@@ -248,7 +252,7 @@ export const TrackingTable: React.FC<TrackingTableProps> = ({
       case 'revenue': return <td key={key} className="px-4 py-3 text-right font-bold text-brand-500">{formatCurrency(campaign.revenue || 0)}</td>;
       case 'roas': return (
         <td key={key} className="px-4 py-3 text-right">
-          {dataSource === 'HYBRID' ? (
+          {dataSource?.includes('HYBRID') ? (
             <span className={`px-2 py-1 rounded-full text-xs font-bold ${evaluation.color} ${evaluation.bg}`}>
               {(campaign.spend && campaign.spend > 0 ? (campaign.revenue || 0) / campaign.spend : 0).toFixed(2)}x
             </span>

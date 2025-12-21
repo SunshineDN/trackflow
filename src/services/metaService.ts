@@ -14,8 +14,8 @@ export async function fetchMetaCampaigns(adAccountId: string, since: string, unt
   const metaConfig = metaAccount.client.integrations.find(i => i.provider === 'META');
   const journeyMap = (metaConfig?.journeyMap as string[]) || ['impressions', 'clicks', 'leads'];
 
-  const sinceDate = new Date(`${since}T00:00:00.000Z`);
-  const untilDate = new Date(`${until}T23:59:59.999Z`);
+  const sinceDate = since.includes('T') ? new Date(since) : new Date(`${since}T00:00:00.000Z`);
+  const untilDate = until.includes('T') ? new Date(until) : new Date(`${until}T23:59:59.999Z`);
 
   const rows = await prisma.metaAdInsightDaily.findMany({
     where: {
@@ -167,8 +167,8 @@ export async function fetchMetaHierarchy(adAccountId: string, since: string, unt
   const metaConfig = metaAccount.client.integrations.find(i => i.provider === 'META');
   const journeyMap = (metaConfig?.journeyMap as string[]) || ['impressions', 'clicks', 'leads'];
 
-  const sinceDate = new Date(`${since}T00:00:00.000Z`);
-  const untilDate = new Date(`${until}T23:59:59.999Z`);
+  const sinceDate = since.includes('T') ? new Date(since) : new Date(`${since}T00:00:00.000Z`);
+  const untilDate = until.includes('T') ? new Date(until) : new Date(`${until}T23:59:59.999Z`);
 
   // 1. Fetch Metrics from DB (Source of Truth for Numbers)
   const rows = await prisma.metaAdInsightDaily.findMany({

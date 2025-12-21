@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Link, Facebook, Menu } from 'lucide-react';
+import { ArrowLeft, Link, Facebook, Menu, BarChart3 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { IntegrationCard } from '@/components/IntegrationCard';
 import { KommoConfigModal } from '@/components/KommoConfigModal';
 import { MetaConfigModal } from '@/components/MetaConfigModal';
+import { GoogleConfigModal } from '@/components/GoogleConfigModal';
 import { useToast } from '@/contexts/ToastContext';
 import { Sidebar } from "@/components/Sidebar";
 import { useSession } from "next-auth/react";
@@ -17,6 +18,7 @@ export default function IntegrationsPage() {
   const [isKommoModalOpen, setIsKommoModalOpen] = useState(false);
   const [kommoStatus, setKommoStatus] = useState(false);
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -86,6 +88,15 @@ export default function IntegrationsPage() {
                 isActive={true}
                 onConfigure={() => setIsMetaModalOpen(true)}
               />
+
+              {/* Google Ads */}
+              <IntegrationCard
+                name="Google Ads"
+                description="Importe campanhas, grupos de anúncios e palavras-chave."
+                icon={<BarChart3 size={24} className="text-yellow-500" />}
+                isActive={true} // Logic to check status can be added here or inside modal
+                onConfigure={() => setIsGoogleModalOpen(true)}
+              />
             </div>
 
             {/* Modals */}
@@ -97,6 +108,11 @@ export default function IntegrationsPage() {
             <MetaConfigModal
               isOpen={isMetaModalOpen}
               onClose={() => setIsMetaModalOpen(false)}
+              onSuccess={() => { }}
+            />
+            <GoogleConfigModal
+              isOpen={isGoogleModalOpen}
+              onClose={() => setIsGoogleModalOpen(false)}
               onSuccess={() => { }}
             />
           </div>

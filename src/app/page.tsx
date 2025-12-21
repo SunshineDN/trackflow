@@ -52,6 +52,8 @@ const HomeContent = () => {
 
     const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<any>(null);
+    const [availableDataSources, setAvailableDataSources] = useState<string[]>([]);
+    const [journeyLabels, setJourneyLabels] = useState<string[]>([]);
 
     const [integrationConfig, setIntegrationConfig] = useState<{ isActive: boolean, journeyMap: string[] } | null>(null);
 
@@ -94,7 +96,7 @@ const HomeContent = () => {
     }, [status]);
 
     // Persist Data Source
-    const [dataSource, setDataSource] = usePersistentState<'KOMMO' | 'META' | 'HYBRID'>('dashboard_dataSource', 'KOMMO');
+    const [dataSource, setDataSource] = usePersistentState<string>('dashboard_dataSource', 'KOMMO');
 
     // Persist Date Range
     const [dateRange, setDateRange] = usePersistentState<DateRange>(
@@ -115,56 +117,75 @@ const HomeContent = () => {
         return map[num] || num.toString();
     };
 
-    const fetchKommoDashboardData = async (journeyMap: string[]) => {
+    const fetchAvailableDataSources = async () => {
+        try {
+            const res = await fetch('/api/dashboard/datasources');
+            if (res.ok) {
+                const sources = await res.json();
+                setAvailableDataSources(sources);
+                // If current dataSource is not available, switch to first available
+                if (sources.length > 0 && !sources.includes(dataSource)) {
+                    setDataSource(sources[0]);
+                }
+            }
+        } catch (error) {
+            console.error("Erro ao buscar fontes de dados:", error);
+        }
+    };
+
+    const fetchDashboardData = async () => {
         if (!selectedAccount) return;
         setIsLoadingData(true);
         try {
             const since = dateRange.from.toISOString();
             const until = dateRange.to.toISOString();
-            const sinceLocal = format(dateRange.from, 'yyyy-MM-dd');
-            const untilLocal = format(dateRange.to, 'yyyy-MM-dd');
 
-            const res = await fetch(`/api/integrations/kommo/data?since=${since}&until=${until}&sinceLocal=${sinceLocal}&untilLocal=${untilLocal}&targetAccountId=${selectedAccount.id}&source=${dataSource}`);
+            const res = await fetch(`/api/dashboard/data?since=${since}&until=${until}&dataSource=${dataSource}`);
             if (res.ok) {
                 const data = await res.json();
-                const campaigns = data.campaigns;
+                const campaigns = data.campaigns || [];
+                const labels = data.labels || [];
 
                 setCampaigns(campaigns);
+                setJourneyLabels(labels);
+
                 if (campaigns.length > 0 && !selectedCampaignId) {
                     setSelectedCampaignId(campaigns[0].id);
                 }
 
-                // Filter for "Integration Only" metrics (Stages & Revenue)
-                const integratedCampaigns = campaigns.filter((c: any) => !c.isOrphan);
-
-                // Investment includes ALL campaigns (Integrated + Orphans)
+                // Calculate Totals
                 const totalSpend = campaigns.reduce((acc: number, c: any) => acc + (c.spend || 0), 0);
-
-                // Revenue comes ONLY from Integrated campaigns
-                const totalRevenue = integratedCampaigns.reduce((acc: number, c: any) => acc + (c.revenue || 0), 0);
-
+                const totalRevenue = campaigns.reduce((acc: number, c: any) => acc + (c.revenue || 0), 0);
                 const totalROAS = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
                 const stageTotals = [
-                    integratedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage1, 0),
-                    integratedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage2, 0),
-                    integratedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage3, 0),
-                    integratedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage4, 0),
-                    integratedCampaigns.reduce((acc: number, c: any) => acc + c.data.stage5, 0),
+                    campaigns.reduce((acc: number, c: any) => acc + (c.data?.stage1 || 0), 0),
+                    campaigns.reduce((acc: number, c: any) => acc + (c.data?.stage2 || 0), 0),
+                    campaigns.reduce((acc: number, c: any) => acc + (c.data?.stage3 || 0), 0),
+                    campaigns.reduce((acc: number, c: any) => acc + (c.data?.stage4 || 0), 0),
+                    campaigns.reduce((acc: number, c: any) => acc + (c.data?.stage5 || 0), 0),
                 ];
 
-                const baseMetrics: MetricSummary[] = journeyMap.map((label, index) => {
+                const baseMetrics: MetricSummary[] = labels.map((label: string, index: number) => {
                     const value = stageTotals[index];
-                    const stage1Value = stageTotals[0];
-                    const percentage = stage1Value > 0 ? (value / stage1Value) * 100 : 0;
+                    const firstStageValue = stageTotals[0];
+                    const percentage = firstStageValue > 0 ? (value / firstStageValue) * 100 : 0;
 
                     return {
                         label: label || `Etapa ${index + 1}`,
                         value: value.toLocaleString('pt-BR'),
-                        percentage: `${percentage.toFixed(2)}%`,
+                        percentage: index === 0 ? "100%" : `${percentage.toFixed(2)}%`,
                         trend: "neutral",
-                        icon: ["Users", "Filter", "CheckCircle", "Target", "Award"][index] || "Activity"
+                        icon: ["Eye", "MousePointer", "Users", "Target", "Award"][index] || "Activity"
                     };
+                });
+
+                baseMetrics.push({
+                    label: "Investimento Total",
+                    value: `R$ ${totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                    percentage: "",
+                    trend: "neutral",
+                    icon: "DollarSign"
                 });
 
                 baseMetrics.push({
@@ -175,169 +196,37 @@ const HomeContent = () => {
                     icon: "DollarSign"
                 });
 
-                if (dataSource === 'HYBRID') {
-                    baseMetrics.push({
-                        label: "Investimento Total",
-                        value: `R$ ${totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                        percentage: "",
-                        trend: "neutral",
-                        icon: "DollarSign"
-                    });
-                    baseMetrics.push({
-                        label: "ROAS Geral",
-                        value: `${totalROAS.toFixed(2)}x`,
-                        percentage: "",
-                        trend: "neutral",
-                        icon: "TrendingUp"
-                    });
-                }
-
-                setMetrics(baseMetrics);
-            }
-        } catch (error) {
-            console.error("Erro ao buscar dados Kommo:", error);
-        } finally {
-            setIsLoadingData(false);
-        }
-    };
-
-    const fetchMetaDashboardData = async () => {
-        const adAccount = selectedAccount?.metaAdAccounts?.[0];
-
-        if (!adAccount?.adAccountId) {
-            setIsLoadingData(false);
-            return;
-        }
-        setIsLoadingData(true);
-        try {
-            const since = format(dateRange.from, 'yyyy-MM-dd');
-            const until = format(dateRange.to, 'yyyy-MM-dd');
-
-            const res = await fetch(`/api/meta/${adAccount.adAccountId}/report/campaigns?since=${since}&until=${until}`);
-            if (res.ok) {
-                const data = await res.json();
-                // API now returns formatted campaigns from fetchMetaCampaigns service
-                const formattedCampaigns = data.campaigns;
-
-                setCampaigns(formattedCampaigns);
-                if (formattedCampaigns.length > 0 && !selectedCampaignId) {
-                    setSelectedCampaignId(formattedCampaigns[0].id);
-                }
-
-                const totalSpend = formattedCampaigns.reduce((acc: number, c: any) => acc + (c.spend || 0), 0);
-
-                // Calculate totals for each stage dynamically
-                const stageTotals = [
-                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage1 || 0), 0),
-                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage2 || 0), 0),
-                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage3 || 0), 0),
-                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage4 || 0), 0),
-                    formattedCampaigns.reduce((acc: number, c: any) => acc + (c.data?.stage5 || 0), 0),
-                ];
-
-                const metricLabels: { [key: string]: string } = {
-                    impressions: "Impressões",
-                    clicks: "Cliques",
-                    leads: "Leads",
-                    reach: "Alcance",
-                    results: "Resultados"
-                };
-
-                const baseMetrics: MetricSummary[] = metaJourneyMap.map((metricKey, index) => {
-                    const value = stageTotals[index];
-                    const firstStageValue = stageTotals[0];
-                    // Calculate percentage relative to the first stage (Impressions/Reach usually)
-                    const percentage = firstStageValue > 0 ? (value / firstStageValue) * 100 : 0;
-
-                    return {
-                        label: metricLabels[metricKey] || metricKey,
-                        value: value.toLocaleString('pt-BR'),
-                        percentage: index === 0 ? "100%" : `${percentage.toFixed(2)}%`,
-                        trend: "neutral",
-                        icon: ["Eye", "MousePointer", "Users", "Target", "Award"][index] || "Activity"
-                    };
-                });
-
-                // Always add Total Spend at the end
                 baseMetrics.push({
-                    label: "Investimento Total",
-                    value: `R$ ${totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                    label: "ROAS Geral",
+                    value: `${totalROAS.toFixed(2)}x`,
                     percentage: "",
                     trend: "neutral",
-                    icon: "DollarSign"
+                    icon: "TrendingUp"
                 });
 
                 setMetrics(baseMetrics);
+
+                // Update integration config for journey map usage in other components
+                setIntegrationConfig({ isActive: true, journeyMap: labels });
             }
         } catch (error) {
-            console.error("Erro ao buscar dados Meta:", error);
+            console.error("Erro ao buscar dados do dashboard:", error);
         } finally {
             setIsLoadingData(false);
         }
     };
 
-    const checkIntegrationAndFetch = async () => {
-        if (!selectedAccount) return;
-        setIsLoadingData(true);
-
-        // 1. Verificar status da integração Kommo
-        let isKommoActive = false;
-        let journeyMap: string[] = [];
-
-        try {
-            const res = await fetch(`/api/integrations/kommo?targetAccountId=${selectedAccount.id}`);
-            if (res.ok) {
-                const config = await res.json();
-                if (config.isActive) {
-                    isKommoActive = true;
-                    journeyMap = config.journeyMap;
-                    setIntegrationConfig({ isActive: true, journeyMap: config.journeyMap });
-                } else {
-                    setIntegrationConfig(null);
-                }
-            }
-        } catch (e) {
-            console.error("Erro ao verificar integração:", e);
-            setIntegrationConfig(null);
+    useEffect(() => {
+        if (status === "authenticated") {
+            fetchAvailableDataSources();
         }
+    }, [status]);
 
-        // 2. Decidir qual dado buscar
-        if (dataSource === 'META' || dataSource === 'HYBRID') {
-            // Fetch Meta Config for Labels (Needed for Hybrid too now)
-            try {
-                const res = await fetch(`/api/integrations/meta/config`);
-                if (res.ok) {
-                    const config = await res.json();
-                    if (config.journeyMap) {
-                        if (dataSource === 'META') {
-                            setIntegrationConfig({ isActive: true, journeyMap: config.journeyMap });
-                        }
-                        setMetaJourneyMap(config.journeyMap);
-                    }
-                }
-            } catch (e) {
-                console.error("Erro ao buscar config Meta:", e);
-            }
-
-            if (dataSource === 'META') {
-                fetchMetaDashboardData();
-            } else if (isKommoActive) {
-                fetchKommoDashboardData(journeyMap);
-            } else {
-                // Fallback if Hybrid but Kommo inactive
-                setDataSource('META');
-                setSelectedCampaignId(null);
-                return;
-            }
-        } else if (isKommoActive) {
-            fetchKommoDashboardData(journeyMap);
-        } else {
-            // Se Kommo inativo e selecionado Kommo -> Fallback para Meta
-            setDataSource('META');
-            setSelectedCampaignId(null);
-            return; // O useEffect vai rodar novamente com dataSource='META'
+    useEffect(() => {
+        if (status === "authenticated" && selectedAccount) {
+            fetchDashboardData();
         }
-    };
+    }, [status, session, selectedAccount, dateRange, dataSource]);
 
     useEffect(() => {
         if (searchParams.get('integration_success') === 'true') {
@@ -374,11 +263,8 @@ const HomeContent = () => {
         }
     }, [status, session, router]);
 
-    useEffect(() => {
-        if (status === "authenticated" && selectedAccount) {
-            checkIntegrationAndFetch();
-        }
-    }, [status, session, selectedAccount, dateRange, dataSource]);
+    // Removed redundant useEffects that were replaced by the single fetchDashboardData effect
+    // Keeping only the account fetching logic above
 
 
 
@@ -425,7 +311,7 @@ const HomeContent = () => {
                     searchTerm={searchTerm}
                     setSearchTerm={setSearchTerm}
                     onSyncSuccess={() => {
-                        if (selectedAccount) checkIntegrationAndFetch();
+                        if (selectedAccount) fetchDashboardData();
                     }}
                     setIsMobileMenuOpen={setIsMobileMenuOpen}
                 />
@@ -440,40 +326,28 @@ const HomeContent = () => {
                             </div>
 
                             {/* Data Source Selector - Hero Position */}
-                            {(() => {
-                                const options = [];
+                            <div className="w-48">
+                                <Select
+                                    options={availableDataSources.map(ds => {
+                                        let label = ds;
+                                        let icon = <LayoutDashboard size={16} />;
+                                        if (ds === 'KOMMO') { label = 'Kommo'; icon = <Filter size={16} />; }
+                                        else if (ds === 'META') { label = 'Meta Ads'; icon = <LayoutDashboard size={16} />; }
+                                        else if (ds === 'GOOGLE') { label = 'Google Ads'; icon = <BarChart3 size={16} />; }
+                                        else if (ds === 'HYBRID_META') { label = 'Kommo + Meta'; icon = <TrendingUp size={16} />; }
+                                        else if (ds === 'HYBRID_GOOGLE') { label = 'Kommo + Google'; icon = <TrendingUp size={16} />; }
+                                        else if (ds === 'HYBRID_ALL') { label = 'Tudo Integrado'; icon = <Layers size={16} />; }
 
-                                // 1. Meta (Always first if available)
-                                if (selectedAccount?.metaAdAccounts?.length > 0) {
-                                    options.push({ value: 'META', label: 'Meta', icon: <LayoutDashboard size={16} /> });
-                                }
-
-                                // 2. Integrations (Kommo)
-                                if (integrationConfig?.isActive) {
-                                    options.push({ value: 'KOMMO', label: 'Kommo', icon: <Filter size={16} /> });
-                                }
-
-                                // 3. Hybrid (If both available)
-                                if (selectedAccount?.metaAdAccounts?.length > 0 && integrationConfig?.isActive) {
-                                    options.push({ value: 'HYBRID', label: 'Kommo + Meta', icon: <TrendingUp size={16} /> });
-                                }
-
-                                if (options.length === 0) return null;
-
-                                return (
-                                    <div className="w-48">
-                                        <Select
-                                            options={options}
-                                            value={dataSource}
-                                            onChange={(val) => {
-                                                setDataSource(val as any);
-                                                setSelectedCampaignId(null);
-                                            }}
-                                            placeholder="Fonte de Dados"
-                                        />
-                                    </div>
-                                );
-                            })()}
+                                        return { value: ds, label, icon };
+                                    })}
+                                    value={dataSource}
+                                    onChange={(val) => {
+                                        setDataSource(val as any);
+                                        setSelectedCampaignId(null);
+                                    }}
+                                    placeholder="Fonte de Dados"
+                                />
+                            </div>
                         </div>
 
                         {/* Metrics Grid */}
@@ -564,7 +438,7 @@ const HomeContent = () => {
 
                             <div className="flex gap-2 flex-wrap justify-end">
                                 {/* Legenda dinâmica */}
-                                {(dataSource === 'META' ? (integrationConfig?.journeyMap || ["Impressões", "Cliques", "Leads", "-", "-"]) : (integrationConfig?.journeyMap || ["Impressões / Alcance", "Cliques / Interesse", "Leads / Cadastro", "Checkout Iniciado", "Compra Realizada"])).map((label, idx) => (
+                                {(journeyLabels || []).map((label, idx) => (
                                     <div
                                         key={idx}
                                         className={`hidden md:flex items-center px-3 py-1 rounded-lg border ${idx === 0 ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
@@ -580,7 +454,7 @@ const HomeContent = () => {
                                 ))}
                             </div>
                         </div>
-                        {dataSource === 'HYBRID' ? (
+                        {dataSource?.includes('HYBRID') ? (
                             <>
                                 <div className="mb-8">
                                     <h3 className="text-md font-semibold text-muted-foreground mb-2">Campanhas Integradas</h3>
@@ -588,32 +462,32 @@ const HomeContent = () => {
                                         data={filteredCampaigns.filter(c => !c.isOrphan)}
                                         onSelect={setSelectedCampaignId}
                                         selectedId={selectedCampaignId}
-                                        journeyLabels={integrationConfig?.journeyMap}
-                                        dataSource={dataSource}
+                                        journeyLabels={journeyLabels}
+                                        dataSource={dataSource as any}
                                         loading={isLoadingData}
                                         goals={goals}
                                         selectedGoalType={selectedGoalType}
                                         columns={currentColumns}
                                         onColumnsReorder={setCurrentColumns}
-                                        metaResultLabel={metaJourneyMap[metaJourneyMap.length - 1]}
+                                        metaResultLabel={journeyLabels[journeyLabels.length - 1]}
                                     />
                                 </div>
 
                                 {filteredCampaigns.some(c => c.isOrphan) && (
                                     <div>
-                                        <h3 className="text-md font-semibold text-muted-foreground mb-2">Campanhas Adicionais (Apenas Meta)</h3>
+                                        <h3 className="text-md font-semibold text-muted-foreground mb-2">Campanhas Adicionais (Não Integradas)</h3>
                                         <TrackingTable
                                             data={filteredCampaigns.filter(c => c.isOrphan)}
                                             onSelect={setSelectedCampaignId}
                                             selectedId={selectedCampaignId}
-                                            journeyLabels={undefined} // Meta orphans in hybrid mode don't have configured labels passed yet, or we could fetch them. For now leaving undefined to use defaults or we need to fetch Meta config separately for Hybrid.
-                                            dataSource="META"
+                                            journeyLabels={undefined}
+                                            dataSource={dataSource.includes('GOOGLE') ? 'GOOGLE' : 'META'} // Simplify fallback
                                             loading={isLoadingData}
                                             goals={goals}
                                             selectedGoalType={selectedGoalType}
                                             columns={currentColumns}
                                             onColumnsReorder={setCurrentColumns}
-                                            metaResultLabel={metaJourneyMap[metaJourneyMap.length - 1]}
+                                            metaResultLabel={journeyLabels[journeyLabels.length - 1]}
                                         />
                                     </div>
                                 )}
@@ -623,14 +497,14 @@ const HomeContent = () => {
                                 data={filteredCampaigns}
                                 onSelect={setSelectedCampaignId}
                                 selectedId={selectedCampaignId}
-                                journeyLabels={integrationConfig?.journeyMap}
-                                dataSource={dataSource}
+                                journeyLabels={journeyLabels}
+                                dataSource={dataSource as any}
                                 loading={isLoadingData}
                                 goals={goals}
                                 selectedGoalType={selectedGoalType}
                                 columns={currentColumns}
                                 onColumnsReorder={setCurrentColumns}
-                                metaResultLabel={metaJourneyMap[metaJourneyMap.length - 1]}
+                                metaResultLabel={journeyLabels[journeyLabels.length - 1]}
                             />
                         )}
                     </section>

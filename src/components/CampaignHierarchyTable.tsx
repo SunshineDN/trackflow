@@ -26,7 +26,7 @@ interface Props {
   data: CampaignHierarchy[];
   loading: boolean;
   journeyLabels?: string[];
-  dataSource?: 'KOMMO' | 'META' | 'HYBRID';
+  dataSource?: 'KOMMO' | 'META' | 'GOOGLE' | 'HYBRID_META' | 'HYBRID_GOOGLE' | 'HYBRID_ALL';
   goals?: any[];
   selectedGoalType?: 'ROAS' | 'CPA' | 'REVENUE';
   columns?: string[];
@@ -41,9 +41,10 @@ interface RowProps {
   renderCell: (node: CampaignHierarchy, key: string) => React.ReactNode;
   onCopy: (text: string) => void;
   evaluation: any;
+  dataSource?: string;
 }
 
-const HierarchyRow: React.FC<RowProps> = ({ node, level, columns, renderCell, onCopy, evaluation }) => {
+const HierarchyRow: React.FC<RowProps> = ({ node, level, columns, renderCell, onCopy, evaluation, dataSource }) => {
   const [expanded, setExpanded] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
   const paddingLeft = level * 20 + 10;
@@ -73,7 +74,9 @@ const HierarchyRow: React.FC<RowProps> = ({ node, level, columns, renderCell, on
                   </span>
 
                   {level === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-500/10 text-brand-500 border border-brand-500/20">Campanha</span>}
-                  {level === 1 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">Conjunto</span>}
+                  {level === 1 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                    {dataSource?.includes('GOOGLE') ? 'Grupo' : 'Conjunto'}
+                  </span>}
                   {level === 2 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/20">Anúncio</span>}
                 </div>
               </td>
@@ -91,6 +94,7 @@ const HierarchyRow: React.FC<RowProps> = ({ node, level, columns, renderCell, on
           renderCell={renderCell}
           onCopy={onCopy}
           evaluation={evaluation}
+          dataSource={dataSource}
         />
       ))}
     </>
@@ -98,7 +102,7 @@ const HierarchyRow: React.FC<RowProps> = ({ node, level, columns, renderCell, on
 };
 
 // Wrapper to handle recursive evaluation calculation
-const HierarchyRowWrapper = ({ node, level, columns, renderCell, onCopy, getEvaluation }: { node: CampaignHierarchy, level: number, columns: string[], renderCell: (node: CampaignHierarchy, key: string) => React.ReactNode, onCopy: (text: string) => void, getEvaluation: (node: CampaignHierarchy) => any }) => {
+const HierarchyRowWrapper = ({ node, level, columns, renderCell, onCopy, getEvaluation, dataSource }: { node: CampaignHierarchy, level: number, columns: string[], renderCell: (node: CampaignHierarchy, key: string) => React.ReactNode, onCopy: (text: string) => void, getEvaluation: (node: CampaignHierarchy) => any, dataSource?: string }) => {
   const [expanded, setExpanded] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
   const paddingLeft = level * 20 + 10;
@@ -129,7 +133,9 @@ const HierarchyRowWrapper = ({ node, level, columns, renderCell, onCopy, getEval
                   </span>
 
                   {level === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-500/10 text-brand-500 border border-brand-500/20">Campanha</span>}
-                  {level === 1 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">Conjunto</span>}
+                  {level === 1 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                    {dataSource?.includes('GOOGLE') ? 'Grupo' : 'Conjunto'}
+                  </span>}
                   {level === 2 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/20">Anúncio</span>}
                 </div>
               </td>
@@ -147,6 +153,7 @@ const HierarchyRowWrapper = ({ node, level, columns, renderCell, onCopy, getEval
           renderCell={renderCell}
           onCopy={onCopy}
           getEvaluation={getEvaluation}
+          dataSource={dataSource}
         />
       ))}
     </>
@@ -265,12 +272,16 @@ export default function CampaignHierarchyTable({
         case 'roas': content = 'ROAS'; break;
         case 'ghostLeads': content = 'Fantasmas'; break;
         case 'results':
-          if (dataSource === 'HYBRID' && metaResultLabel) {
-            content = `Meta ${metaResultLabel}`;
+          if (dataSource?.includes('HYBRID') && metaResultLabel) {
+            content = `Plataforma ${metaResultLabel}`;
           } else {
-            content = dataSource === 'META'
-              ? (journeyLabels && journeyLabels.length > 0 ? `Meta ${journeyLabels[journeyLabels.length - 1]}` : 'Meta Resultado')
-              : (journeyLabels && journeyLabels.length > 0 ? journeyLabels[journeyLabels.length - 1] : 'Resultado');
+            if (dataSource === 'META') {
+              content = journeyLabels && journeyLabels.length > 0 ? `Meta ${journeyLabels[journeyLabels.length - 1]}` : 'Meta Resultado';
+            } else if (dataSource === 'GOOGLE') {
+              content = journeyLabels && journeyLabels.length > 0 ? `Google ${journeyLabels[journeyLabels.length - 1]}` : 'Google Resultado';
+            } else {
+              content = journeyLabels && journeyLabels.length > 0 ? journeyLabels[journeyLabels.length - 1] : 'Resultado';
+            }
           }
           break;
         default: content = null;
@@ -342,7 +353,7 @@ export default function CampaignHierarchyTable({
       case 'revenue': return <td key={key} className="px-4 py-3 text-right font-bold text-brand-500">{formatCurrency(node.revenue || 0)}</td>;
       case 'roas': return (
         <td key={key} className="px-4 py-3 text-right">
-          {dataSource === 'HYBRID' ? (
+          {dataSource?.includes('HYBRID') ? (
             <span className={`px-2 py-1 rounded-full text-xs font-bold ${evaluation.color} ${evaluation.bg}`}>
               {(node.spend && node.spend > 0 ? (node.revenue || 0) / node.spend : 0).toFixed(2)}x
             </span>
@@ -416,6 +427,7 @@ export default function CampaignHierarchyTable({
                   renderCell={renderCell}
                   onCopy={handleCopy}
                   getEvaluation={getEvaluation}
+                  dataSource={dataSource}
                 />
               ))
             )}
