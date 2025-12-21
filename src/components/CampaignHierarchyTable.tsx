@@ -26,7 +26,7 @@ interface Props {
   data: CampaignHierarchy[];
   loading: boolean;
   journeyLabels?: string[];
-  dataSource?: 'KOMMO' | 'META' | 'GOOGLE' | 'HYBRID_META' | 'HYBRID_GOOGLE' | 'HYBRID_ALL';
+  dataSource?: 'KOMMO' | 'META' | 'GOOGLE' | 'HYBRID' | 'HYBRID_META' | 'HYBRID_GOOGLE' | 'HYBRID_ALL';
   goals?: any[];
   selectedGoalType?: 'ROAS' | 'CPA' | 'REVENUE';
   columns?: string[];
