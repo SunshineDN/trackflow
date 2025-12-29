@@ -4,11 +4,17 @@ import { authOptions } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
-const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
-const META_APP_SECRET = process.env.META_APP_SECRET;
-
 export async function GET(request: Request) {
   console.log("Meta Auth Callback: Started");
+
+  const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID;
+  const META_APP_SECRET = process.env.META_APP_SECRET;
+
+  if (!META_APP_ID || !META_APP_SECRET) {
+    console.error("Meta Auth Callback Error: Missing App ID or Secret", { hasAppId: !!META_APP_ID, hasSecret: !!META_APP_SECRET });
+    return new NextResponse("Server Configuration Error: Meta App ID or Secret is missing.", { status: 500 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
