@@ -284,14 +284,55 @@ export const MetaConfigModal: React.FC<MetaConfigModalProps> = ({ isOpen, onClos
                 ) : (
                   <div className="space-y-4">
                     {connectedAccountName ? (
-                      <div className="flex items-center justify-between bg-green-500/10 p-3 rounded-lg border border-green-500/20">
-                        <div>
-                          <p className="text-sm font-medium text-green-700 dark:text-green-400">Conectado como</p>
-                          <p className="font-bold text-foreground">{connectedAccountName}</p>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between bg-green-500/10 p-3 rounded-lg border border-green-500/20">
+                          <div>
+                            <p className="text-sm font-medium text-green-700 dark:text-green-400">Conectado como</p>
+                            <p className="font-bold text-foreground">{connectedAccountName}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setConnectedAccountName(null);
+                                setSelectedAccountId("");
+                                setSelectedBusinessId("");
+                                fetchAccounts(); // Refresh list
+                              }}
+                              className="text-xs text-muted-foreground hover:text-foreground underline"
+                            >
+                              Trocar conta
+                            </button>
+                          </div>
                         </div>
-                        <button onClick={handleConnect} className="text-xs text-muted-foreground hover:text-foreground underline">
-                          Trocar conta
-                        </button>
+
+                        <div className="flex justify-between items-center pt-2">
+                          <button
+                            onClick={handleConnect}
+                            className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                            title="Use isso se precisar trocar o usuário do Facebook"
+                          >
+                            <Facebook size={12} />
+                            Re-autenticar com Facebook
+                          </button>
+
+                          <button
+                            onClick={async () => {
+                              if (!confirm("Tem certeza que deseja desconectar? Isso irá parar a sincronização.")) return;
+                              try {
+                                await fetch('/api/integrations/meta/disconnect', { method: 'DELETE' });
+                                setIsConnected(false);
+                                setConnectedAccountName(null);
+                                setAvailableAccounts([]);
+                                showToast("Desconectado com sucesso.", "success");
+                              } catch (e) {
+                                showToast("Erro ao desconectar.", "error");
+                              }
+                            }}
+                            className="text-xs text-red-500 hover:text-red-600"
+                          >
+                            Desconectar Integração
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-4">

@@ -22,9 +22,12 @@ export async function POST(
     const since = body.since || "2024-01-01";
     const until = body.until || "2024-01-31";
 
-    // Find the ad account first to identify the owner
+    // Find the ad account for the current user
     const metaAccount = await prisma.metaAdAccount.findFirst({
-        where: { adAccountId },
+        where: {
+            adAccountId,
+            clientId: session.user.clientId
+        },
     });
 
     if (!metaAccount) {
