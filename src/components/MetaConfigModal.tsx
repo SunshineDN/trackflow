@@ -28,6 +28,7 @@ export const MetaConfigModal: React.FC<MetaConfigModalProps> = ({ isOpen, onClos
   const [connectedAccountName, setConnectedAccountName] = useState<string | null>(null);
   const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
   const [journeyStages, setJourneyStages] = useState<string[]>(['impressions', 'clicks', 'leads']);
   const fetchAccounts = async () => {
     setIsLoading(true);
@@ -272,27 +273,58 @@ export const MetaConfigModal: React.FC<MetaConfigModalProps> = ({ isOpen, onClos
                         </button>
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        <p className="text-sm text-foreground font-medium">Selecione a conta de anúncios:</p>
-                        {availableAccounts.length > 0 ? (
-                          <div className="flex gap-2">
-                            <Select
-                              options={availableAccounts.map(a => ({
-                                value: a.account_id || a.id,
-                                label: `${a.name} (${a.account_id || a.id})`
-                              }))}
-                              value={selectedAccountId}
-                              onChange={setSelectedAccountId}
-                            />
-                            <button
-                              onClick={handleSelectAccount}
-                              disabled={!selectedAccountId || isSaving}
-                              className="bg-brand-600 text-white px-4 rounded-lg hover:bg-brand-700 disabled:opacity-50"
-                            >
-                              Confirmar
-                            </button>
+                      <div className="space-y-4">
+                        {/* Step 1: Select Business Portfolio */}
+                        <div className="space-y-2">
+                          <p className="text-sm text-foreground font-medium">1. Selecione o Portfólio Empresarial:</p>
+                          <Select
+                            options={[
+                              ...Array.from(new Set(availableAccounts.map(a => a.business?.id || 'personal'))).map(bizId => {
+                                const account = availableAccounts.find(a => (a.business?.id || 'personal') === bizId);
+                                const isPersonal = bizId === 'personal';
+                                return {
+                                  value: bizId,
+                                  label: isPersonal ? 'Conta Pessoal (Sem Portfólio)' : (account?.business?.name || 'Portfólio Desconhecido')
+                                };
+                              })
+                            ]}
+                            value={selectedBusinessId}
+                            onChange={(val) => {
+                              setSelectedBusinessId(val);
+                              setSelectedAccountId(""); // Reset account selection
+                            }}
+                            placeholder="Selecione um portfólio..."
+                          />
+                        </div>
+
+                        {/* Step 2: Select Ad Account */}
+                        {selectedBusinessId && (
+                          <div className="space-y-2">
+                            <p className="text-sm text-foreground font-medium">2. Selecione a Conta de Anúncios:</p>
+                            <div className="flex gap-2">
+                              <Select
+                                options={availableAccounts
+                                  .filter(a => (a.business?.id || 'personal') === selectedBusinessId)
+                                  .map(a => ({
+                                    value: a.account_id || a.id,
+                                    label: `${a.name} (${a.account_id || a.id})`
+                                  }))}
+                                value={selectedAccountId}
+                                onChange={setSelectedAccountId}
+                                placeholder="Selecione uma conta..."
+                              />
+                              <button
+                                onClick={handleSelectAccount}
+                                disabled={!selectedAccountId || isSaving}
+                                className="bg-brand-600 text-white px-4 rounded-lg hover:bg-brand-700 disabled:opacity-50"
+                              >
+                                Confirmar
+                              </button>
+                            </div>
                           </div>
-                        ) : (
+                        )}
+
+                        {!availableAccounts.length && (
                           <p className="text-sm text-yellow-500">Nenhuma conta de anúncios encontrada.</p>
                         )}
                       </div>

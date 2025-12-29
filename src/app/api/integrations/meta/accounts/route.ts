@@ -23,7 +23,7 @@ export async function GET() {
     // Fetch Ad Accounts
     // We need fields: name, account_id, account_status
     const res = await metaGet<{ data: any[] }>("/me/adaccounts", client.metaUserAccessToken, {
-      fields: "name,account_id,account_status,currency,timezone_name",
+      fields: "name,account_id,account_status,currency,timezone_name,business",
       limit: 100
     });
 
