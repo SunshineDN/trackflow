@@ -114,96 +114,109 @@ export async function listAccessibleCustomers(accessToken: string) {
 
 // --- Data Fetching ---
 
+// --- Data Fetching ---
+
 export async function fetchGoogleHierarchy(googleAdAccountId: string, since: string, until: string) {
-  const account = await prisma.googleAdAccount.findUnique({
-    where: { id: googleAdAccountId },
-  });
-
-  if (!account) throw new Error("Google Ad Account not found");
-
-  // Refresh token if needed (simplified logic: always refresh or check expiry)
-  // For robustness, let's refresh if we suspect it's old, or just try/catch.
-  // Better: Check expiry. If < 5 mins remaining, refresh.
-  let accessToken = account.accessToken;
-  if (!accessToken || (account.tokenExpiresAt && new Date() > new Date(account.tokenExpiresAt.getTime() - 5 * 60000))) {
-    const tokens = await refreshGoogleToken(account.refreshToken);
-    accessToken = tokens.access_token;
-    await prisma.googleAdAccount.update({
-      where: { id: account.id },
-      data: {
-        accessToken: tokens.access_token,
-        tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-      }
+  try {
+    const account = await prisma.googleAdAccount.findUnique({
+      where: { id: googleAdAccountId },
     });
+
+    if (!account) throw new Error("Google Ad Account not found");
+
+    // Initialize Client
+    const { GoogleAdsApi } = await import("google-ads-api");
+    const client = new GoogleAdsApi({
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      developer_token: process.env.GOOGLE_DEVELOPER_TOKEN!,
+    });
+
+    // Get Customer instance (library handles token refresh if we pass refresh_token)
+    const customer = client.Customer({
+      customer_id: account.customerId.replace(/-/g, ''), // Remove dashes
+      refresh_token: account.refreshToken,
+    });
+
+    // Format dates to YYYY-MM-DD
+    const formatDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      return date.toISOString().split('T')[0];
+    };
+
+    const fromDate = formatDate(since);
+    const toDate = formatDate(until);
+
+    // GAQL Queries
+    // 1. Campaigns
+    const campaignQuery = `
+      SELECT 
+        campaign.id, 
+        campaign.name, 
+        campaign.status,
+        metrics.cost_micros,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.conversions,
+        metrics.all_conversions_value
+      FROM campaign 
+      WHERE segments.date BETWEEN '${fromDate}' AND '${toDate}'
+    `;
+
+    // 2. Ad Groups
+    const adGroupQuery = `
+      SELECT 
+        ad_group.id, 
+        ad_group.name, 
+        ad_group.status,
+        campaign.id,
+        metrics.cost_micros,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.conversions
+      FROM ad_group 
+      WHERE segments.date BETWEEN '${fromDate}' AND '${toDate}'
+    `;
+
+    // 3. Ads
+    const adQuery = `
+      SELECT 
+        ad_group_ad.ad.id, 
+        ad_group_ad.ad.name, 
+        ad_group_ad.status,
+        ad_group.id,
+        metrics.cost_micros,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.conversions
+      FROM ad_group_ad 
+      WHERE segments.date BETWEEN '${fromDate}' AND '${toDate}'
+    `;
+
+    // Execute queries
+    const [campaigns, adGroups, ads] = await Promise.all([
+      customer.query(campaignQuery),
+      customer.query(adGroupQuery),
+      customer.query(adQuery)
+    ]);
+
+    console.log("Google Ads Sync - Campaigns (First Item):", campaigns.length > 0 ? JSON.stringify(campaigns[0], null, 2) : "No campaigns found");
+    console.log("Google Ads Sync - AdGroups (First Item):", adGroups.length > 0 ? JSON.stringify(adGroups[0], null, 2) : "No ad groups found");
+    console.log("Google Ads Sync - Ads (First Item):", ads.length > 0 ? JSON.stringify(ads[0], null, 2) : "No ads found");
+
+    // Transform to Hierarchy
+    return mapGoogleDataToHierarchy(campaigns, adGroups, ads);
+
+  } catch (error: any) {
+    console.error("Google Ads Sync Error:", JSON.stringify(error, null, 2));
+    // Also log the message directly in case stringify fails
+    console.error("Google Ads Sync Error Message:", error.message);
+    throw new Error(`Failed to sync Google Ads: ${error.message}`);
   }
-
-  const customerId = account.customerId.replace(/-/g, '');
-
-  // GAQL Queries
-  // 1. Campaigns
-  const campaignQuery = `
-    SELECT 
-      campaign.id, 
-      campaign.name, 
-      campaign.status,
-      metrics.cost_micros,
-      metrics.impressions,
-      metrics.clicks,
-      metrics.conversions,
-      metrics.all_conversions_value
-    FROM campaign 
-    WHERE segments.date BETWEEN '${since}' AND '${until}'
-  `;
-
-  // 2. Ad Groups
-  const adGroupQuery = `
-    SELECT 
-      ad_group.id, 
-      ad_group.name, 
-      ad_group.status,
-      campaign.id,
-      metrics.cost_micros,
-      metrics.impressions,
-      metrics.clicks,
-      metrics.conversions
-    FROM ad_group 
-    WHERE segments.date BETWEEN '${since}' AND '${until}'
-  `;
-
-  // 3. Ads
-  const adQuery = `
-    SELECT 
-      ad_group_ad.ad.id, 
-      ad_group_ad.ad.name, 
-      ad_group_ad.status,
-      ad_group.id,
-      metrics.cost_micros,
-      metrics.impressions,
-      metrics.clicks,
-      metrics.conversions
-    FROM ad_group_ad 
-    WHERE segments.date BETWEEN '${since}' AND '${until}'
-  `;
-
-  const [campaignsRes, adGroupsRes, adsRes] = await Promise.all([
-    googleAdsRequest(customerId, campaignQuery, accessToken!),
-    googleAdsRequest(customerId, adGroupQuery, accessToken!),
-    googleAdsRequest(customerId, adQuery, accessToken!)
-  ]);
-
-  // Transform to Hierarchy
-  // ... (Implementation of mapping similar to metaService)
-  // This needs to return CampaignHierarchy[]
-
-  // Placeholder for full mapping logic
-  return mapGoogleDataToHierarchy(campaignsRes, adGroupsRes, adsRes);
 }
 
-function mapGoogleDataToHierarchy(campaignsData: any, adGroupsData: any, adsData: any): any[] {
-  // Helper to parse Google Rows
-  const campaigns = campaignsData.results || [];
-  const adGroups = adGroupsData.results || [];
-  const ads = adsData.results || [];
+function mapGoogleDataToHierarchy(campaigns: any[], adGroups: any[], ads: any[]): any[] {
+  // The library returns arrays of rows directly
 
   const hierarchy: any[] = [];
   const campaignMap = new Map<string, any>();
@@ -213,15 +226,19 @@ function mapGoogleDataToHierarchy(campaignsData: any, adGroupsData: any, adsData
   for (const row of campaigns) {
     const c = row.campaign;
     const m = row.metrics;
+
+    // Robust status check
+    const status = c.status ? String(c.status).toLowerCase() : 'unknown';
+
     const node = {
       id: String(c.id),
       name: c.name,
       type: 'campaign',
-      status: c.status.toLowerCase(), // ENABLED, PAUSED, REMOVED -> active, paused, completed
+      status: status, // ENABLED, PAUSED, REMOVED -> active, paused, completed
       data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
-      spend: (Number(m.costMicros) || 0) / 1000000,
+      spend: (Number(m.cost_micros) || 0) / 1000000,
       roas: 0,
-      revenue: 0,
+      revenue: Number(m.all_conversions_value) || 0,
       metaLeads: Number(m.conversions) || 0,
       children: []
     };
@@ -231,19 +248,21 @@ function mapGoogleDataToHierarchy(campaignsData: any, adGroupsData: any, adsData
 
   // Process Ad Groups
   for (const row of adGroups) {
-    const ag = row.adGroup;
+    const ag = row.ad_group;
     const m = row.metrics;
     const campId = String(row.campaign.id);
     const parent = campaignMap.get(campId);
 
     if (parent) {
+      const status = ag.status ? String(ag.status).toLowerCase() : 'unknown';
+
       const node = {
         id: String(ag.id),
         name: ag.name,
         type: 'adset', // Mapping AdGroup to AdSet for consistency
-        status: ag.status.toLowerCase(),
+        status: status,
         data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
-        spend: (Number(m.costMicros) || 0) / 1000000,
+        spend: (Number(m.cost_micros) || 0) / 1000000,
         roas: 0,
         revenue: 0,
         metaLeads: Number(m.conversions) || 0,
@@ -256,20 +275,22 @@ function mapGoogleDataToHierarchy(campaignsData: any, adGroupsData: any, adsData
 
   // Process Ads
   for (const row of ads) {
-    const ad = row.adGroupAd.ad;
-    const status = row.adGroupAd.status;
+    const ad = row.ad_group_ad.ad;
+    const rawStatus = row.ad_group_ad.status;
     const m = row.metrics;
-    const agId = String(row.adGroup.id);
+    const agId = String(row.ad_group.id);
     const parent = adGroupMap.get(agId);
 
     if (parent) {
+      const status = rawStatus ? String(rawStatus).toLowerCase() : 'unknown';
+
       const node = {
         id: String(ad.id),
         name: ad.name || `Ad ${ad.id}`,
         type: 'ad',
-        status: status.toLowerCase(),
+        status: status,
         data: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0 },
-        spend: (Number(m.costMicros) || 0) / 1000000,
+        spend: (Number(m.cost_micros) || 0) / 1000000,
         roas: 0,
         revenue: 0,
         metaLeads: Number(m.conversions) || 0,

@@ -34,6 +34,11 @@ model Client {
   metaUserAccessToken String?
   metaUserTokenExpiry DateTime?
 
+  // Google Integration
+  googleUserRefreshToken String?
+  googleUserAccessToken  String?
+  googleUserTokenExpiry  DateTime?
+
   // Relations
   metaAdAccounts  MetaAdAccount[]
   googleAdAccounts GoogleAdAccount[]
